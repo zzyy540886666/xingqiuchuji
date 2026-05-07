@@ -1,162 +1,154 @@
 <script setup lang="ts">
-import AppTabBar from '@/components/AppTabBar.vue'
-import FeatureGrid from '@/components/FeatureGrid.vue'
-import { useSessionStore } from '@/stores/session'
-import { maskMobile } from '@/utils/format'
+type Hotspot = {
+  className: string
+  url?: string
+  label: string
+}
 
-const session = useSessionStore()
-
-const orderItems = [
-  { title: '待付款', color: '#7c66ff', url: '/pages/order/list' },
-  { title: '服务中', color: '#39d6a0', url: '/pages/order/list' },
-  { title: '待评价', color: '#ffc24b', url: '/pages/order/list' },
-  { title: '已取消', color: '#f25f6b', url: '/pages/order/list' },
-  { title: '退款售后', color: '#ff9a46', url: '/pages/order/list' }
+const hotspots: Hotspot[] = [
+  { className: 'hotspot--settings', label: '设置' },
+  { className: 'hotspot--service', label: '客服与设置' },
+  { className: 'hotspot--member-rights', url: '/pages/member/index', label: '查看会员权益' },
+  { className: 'hotspot--growth', url: '/pages/member/index', label: '成长中心' },
+  { className: 'hotspot--orders', url: '/pages/order/list', label: '我的订单' },
+  { className: 'hotspot--wallet', url: '/pages/wallet/index', label: '钱包' },
+  { className: 'hotspot--member', url: '/pages/member/index', label: '会员中心' },
+  { className: 'hotspot--assets', url: '/pages/asset/list', label: '分身资产' },
+  { className: 'hotspot--trusteeship', url: '/pages/asset/trusteeship', label: '托管收益' },
+  { className: 'hotspot--distribution', url: '/pages/distribution/home', label: '分销中心' },
+  { className: 'hotspot--invite', url: '/pages/distribution/invite', label: '邀请好友' },
+  { className: 'hotspot--asset-wallet', url: '/pages/wallet/index', label: '进入钱包' },
+  { className: 'hotspot--asset-all', url: '/pages/asset/list', label: '查看全部分身资产' }
 ]
 
-const featureItems = [
-  { title: '评价中心', color: '#f25f6b' },
-  { title: '我的地址', color: '#7986ff' },
-  { title: '合作申请', color: '#7c66ff', url: '/pages/distribution/home' },
-  { title: '供应商邀请码', color: '#39d6a0' },
-  { title: '城市合伙人', color: '#5ca9ff', url: '/pages/distribution/home' },
-  { title: '设置', color: '#8b9bf7' }
-]
-
-function goOrders() {
-  uni.navigateTo({ url: '/pages/order/list' })
+function go(item: Hotspot) {
+  if (!item.url) return
+  uni.navigateTo({ url: item.url })
 }
 </script>
 
 <template>
-  <view class="page mine-page">
-    <view class="profile">
-      <view class="avatar" />
-      <view class="profile__info">
-        <text class="profile__mobile">{{ session.user ? maskMobile(session.user.mobile) : '未登录' }}</text>
-        <text class="profile__level">{{ session.user?.level || '登录后查看权益' }}</text>
-      </view>
-      <view class="support" />
-    </view>
-
-    <view class="coupon-row">
-      <view class="coupon-card">
-        <text>优惠券</text>
-      </view>
-      <view class="coupon-card">
-        <text>我要开票</text>
-      </view>
-    </view>
-
-    <view class="panel">
-      <view class="panel__header">
-        <text>我的订单</text>
-        <text @tap="goOrders">全部</text>
-      </view>
-      <FeatureGrid :items="orderItems" />
-    </view>
-
-    <view class="panel">
-      <view class="panel__header">
-        <text>常用功能</text>
-      </view>
-      <FeatureGrid :items="featureItems" />
-    </view>
-
-    <AppTabBar current="mine" />
+  <view class="mine-page">
+    <image class="mine-page__image" src="/static/images/mine/mine-page.png" mode="widthFix" />
+    <button
+      v-for="item in hotspots"
+      :key="item.className"
+      class="hotspot"
+      :class="item.className"
+      :aria-label="item.label"
+      @tap="go(item)"
+    />
   </view>
 </template>
 
 <style scoped lang="scss">
-@import '@/styles/tokens.scss';
-
 .mine-page {
-  min-height: 100vh;
-  padding: 92rpx 32rpx 140rpx;
+  position: relative;
+  width: 750rpx;
+  min-height: 1331.91rpx;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #ffffff;
 }
 
-.profile {
-  display: flex;
-  align-items: center;
-  gap: 28rpx;
-}
-
-.avatar {
-  width: 104rpx;
-  height: 104rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #dceeff, #2f7cf6);
-}
-
-.profile__info {
-  flex: 1;
-}
-
-.profile__mobile,
-.profile__level {
+.mine-page__image {
   display: block;
+  width: 750rpx;
+  height: auto;
 }
 
-.profile__mobile {
-  color: $color-text;
-  font-size: 38rpx;
-  font-weight: 800;
+.hotspot {
+  position: absolute;
+  z-index: 2;
+  border: 0;
+  opacity: 0;
 }
 
-.profile__level {
-  margin-top: 10rpx;
-  color: $color-subtext;
-  font-size: 24rpx;
+.hotspot--settings {
+  top: 76rpx;
+  right: 100rpx;
+  width: 74rpx;
+  height: 91rpx;
 }
 
-.support {
-  width: 50rpx;
-  height: 50rpx;
-  border-radius: 50%;
-  border: 4rpx solid $color-text;
+.hotspot--service {
+  top: 76rpx;
+  right: 26rpx;
+  width: 74rpx;
+  height: 91rpx;
 }
 
-.coupon-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24rpx;
-  margin-top: 54rpx;
+.hotspot--member-rights {
+  top: 285rpx;
+  right: 38rpx;
+  width: 175rpx;
+  height: 54rpx;
 }
 
-.coupon-card,
-.panel {
-  border-radius: $radius-md;
-  background: #fff;
-  box-shadow: $shadow-card;
+.hotspot--growth {
+  top: 377rpx;
+  right: 42rpx;
+  width: 129rpx;
+  height: 52rpx;
 }
 
-.coupon-card {
-  height: 112rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $color-text;
-  font-size: 28rpx;
+.hotspot--orders,
+.hotspot--wallet,
+.hotspot--member,
+.hotspot--assets,
+.hotspot--trusteeship,
+.hotspot--distribution,
+.hotspot--invite {
+  width: 132rpx;
+  height: 108rpx;
 }
 
-.panel {
-  margin-top: 32rpx;
-  padding: 28rpx 18rpx 34rpx;
+.hotspot--orders {
+  top: 638rpx;
+  left: 83rpx;
 }
 
-.panel__header {
-  display: flex;
-  justify-content: space-between;
-  margin: 0 0 34rpx 0;
-  padding: 0 10rpx;
-  color: $color-text;
-  font-size: 32rpx;
-  font-weight: 800;
+.hotspot--wallet {
+  top: 638rpx;
+  left: 252rpx;
 }
 
-.panel__header text:last-child {
-  color: $color-subtext;
-  font-size: 24rpx;
-  font-weight: 400;
+.hotspot--member {
+  top: 638rpx;
+  left: 421rpx;
+}
+
+.hotspot--assets {
+  top: 638rpx;
+  left: 588rpx;
+}
+
+.hotspot--trusteeship {
+  top: 749rpx;
+  left: 83rpx;
+}
+
+.hotspot--distribution {
+  top: 749rpx;
+  left: 252rpx;
+}
+
+.hotspot--invite {
+  top: 749rpx;
+  left: 421rpx;
+}
+
+.hotspot--asset-wallet {
+  top: 928rpx;
+  right: 38rpx;
+  width: 105rpx;
+  height: 44rpx;
+}
+
+.hotspot--asset-all {
+  top: 1107rpx;
+  right: 38rpx;
+  width: 105rpx;
+  height: 44rpx;
 }
 </style>
