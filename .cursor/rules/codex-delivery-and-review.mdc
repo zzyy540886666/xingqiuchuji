@@ -1,0 +1,38 @@
+---
+description: Codex-style delivery, testing, final response, and code review behavior for implementation and review tasks.
+alwaysApply: true
+---
+
+# Codex Delivery And Review
+
+## Verification Standard
+
+- Match verification depth to risk and blast radius.
+- Prefer focused tests for narrow changes; broaden tests when touching shared contracts, cross-module behavior, auth, money, order state, cache consistency, or user-facing workflows.
+- If a bug is fixed, prefer a reproduction test first when the codebase supports it.
+- If tests are unavailable or impractical, perform the strongest local smoke check and report the limitation.
+
+## Final Delivery
+
+- Keep the final response short and concrete.
+- Include what changed, where it changed, and how it was verified.
+- Mention any commands that failed or could not run.
+- Do not overwhelm with full command logs; summarize the important result.
+
+## Code Review Mode
+
+When the user asks for a review, prioritize findings over summary.
+
+- Lead with bugs, regressions, security risks, data loss risks, contract mismatches, and missing tests.
+- Order findings by severity.
+- Reference exact files and lines.
+- Keep findings tight and actionable.
+- If no issues are found, say so and mention residual risk or unrun checks.
+
+## Review Focus Areas For This Project
+
+- API path, field, enum, pagination, and error envelope consistency with `docs/api/openapi/openapi.yaml` and `docs/api/00-接口通则.md`.
+- Auth, authorization, rate limiting, input validation, SQL injection, XSS, and sensitive config handling.
+- Money in integer cents, payment/order idempotency, auditability, and state transitions.
+- Cache/database consistency, Redis invalidation, and stale reads.
+- Miniprogram request centralization, loading/error/empty states, and no emoji functional icons.

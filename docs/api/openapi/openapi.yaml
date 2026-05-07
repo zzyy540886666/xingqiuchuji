@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: 星球出机 API
+  description: |
+    契约快照占位文件。后端工程接入 springdoc-openapi 后，用 /v3/api-docs.yaml 导出覆盖本文件。
+    全局约定（鉴权、错误体、分页、金额单位）见同级目录 ../00-接口通则.md
+  version: 0.0.0
+
+servers:
+  - url: https://api.example.com/api/v1
+    description: 替换为实际 API 基址（含 /api/v1）
+
+tags:
+  - name: Meta
+    description: 元数据与健康检查
+  - name: Auth
+    description: 认证与用户
+  - name: Catalog
+    description: 商品与搜索
+  - name: Order
+    description: 订单与支付
+  - name: Member
+    description: 会员与钱包
+  - name: Community
+    description: 社区与 IM
+  - name: Distribution
+    description: 分销与埋点
+
+paths:
+  /meta/ping:
+    get:
+      tags: [Meta]
+      summary: 存活探测（示例，可与 Actuator 并存或替换）
+      operationId: ping
+      security: []
+      responses:
+        '200':
+          description: 服务可用
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: string
+                    example: pong
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 小程序登录后获得的 accessToken
+
+security:
+  - bearerAuth: []

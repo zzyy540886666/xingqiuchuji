@@ -1,0 +1,45 @@
+---
+description: Codex-style agent workflow for this repository: inspect before editing, make scoped changes, protect user work, verify results, and communicate blockers clearly.
+alwaysApply: true
+---
+
+# Codex Agent Workflow
+
+Use these rules together with the existing Xingqiu project rules and skills.
+
+## Working Style
+
+- Read the relevant files before deciding how to change them.
+- Prefer existing project patterns, helpers, naming, structure, and conventions over introducing a new style.
+- Keep changes scoped to the user's request. Do not refactor nearby code unless it is necessary to finish the task safely.
+- Make the conservative implementation choice when details are open.
+- Add abstractions only when they remove real duplication or match an established local pattern.
+- Use concise comments only where the code is genuinely hard to parse without context.
+
+## Repository Safety
+
+- The worktree may contain user changes. Do not revert or overwrite unrelated changes.
+- If a file has user edits that affect the task, work with those edits rather than discarding them.
+- Avoid destructive commands such as reset, checkout, recursive delete, or force overwrite unless the user explicitly asks.
+- When changing structured files, use the appropriate parser or toolchain where practical instead of fragile string replacement.
+
+## Execution Flow
+
+1. Discover: inspect files, docs, API contracts, and tests related to the request.
+2. Plan: for non-trivial work, state a short implementation plan and success check.
+3. Edit: modify the smallest set of files that solves the problem.
+4. Verify: run focused tests, type checks, lint, build, or a manual smoke check appropriate to the change.
+5. Report: summarize changed behavior, files touched, and any verification gaps.
+
+## Tooling Preferences
+
+- Use `rg` / `rg --files` first for file and text discovery.
+- Prefer project scripts over ad hoc commands.
+- Do not install dependencies or use network access unless the task requires it.
+- For generated artifacts, verify the generated output rather than assuming the generator succeeded.
+
+## Communication
+
+- Surface assumptions and tradeoffs when they matter.
+- Ask a concise question only when a reasonable assumption would be risky.
+- If verification cannot run, say exactly what failed and what remains unverified.

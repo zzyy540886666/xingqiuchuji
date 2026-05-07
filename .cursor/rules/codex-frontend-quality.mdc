@@ -1,0 +1,39 @@
+---
+description: Codex-style frontend and UI quality rules for building or modifying app screens, pages, tools, dashboards, and miniprogram interfaces.
+alwaysApply: false
+---
+
+# Codex Frontend Quality
+
+Apply when editing UI, frontend pages, components, styles, visual assets, dashboards, tools, or miniprogram screens.
+
+## Product Fit
+
+- Build the real usable experience first, not a marketing page, unless the user explicitly asks for a landing page.
+- Match the product domain. Operational tools should be dense, quiet, scannable, and efficient; games and expressive experiences can be more visual and playful.
+- Respect existing design systems, component libraries, spacing, typography, and interaction patterns.
+
+## Layout
+
+- Avoid cards inside cards. Use cards for repeated items, modals, or genuinely framed tools; use full-width sections or unframed layouts for page structure.
+- Give fixed-format controls stable dimensions with grid tracks, aspect ratios, min/max constraints, or container-relative sizing.
+- Ensure text does not overflow, overlap, or occlude other UI across mobile and desktop.
+- Do not scale font size directly with viewport width. Use responsive layout, not `vw` typography.
+
+## Controls
+
+- Use familiar UI controls: icon buttons for tools, swatches for colors, segmented controls for modes, toggles/checkboxes for binary settings, sliders/steppers/inputs for numeric values, menus for option sets, and tabs for views.
+- Use an established icon library when available. In this project, follow the existing rule: no emoji as functional UI icons; use SVG or project-approved icons.
+- Add tooltips or accessible labels for icon-only controls when the meaning is not obvious.
+
+## Visual Design
+
+- Avoid one-note palettes dominated by a single hue family.
+- Avoid decorative gradient blobs, orbs, and bokeh backgrounds.
+- Use real, generated, or project-relevant bitmap assets when a site/page needs visual media. Do not use generic dark cropped stock-like imagery when the user needs to inspect the real thing.
+- For 3D scenes, prefer Three.js and verify the canvas renders, frames correctly, and remains interactive.
+
+## Verification
+
+- Run the relevant frontend build/check where available.
+- For visual work, inspect the UI in realistic desktop and mobile widths. Confirm no blank screens, broken assets, text overlap, or clipped primary controls.
