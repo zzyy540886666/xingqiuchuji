@@ -9,7 +9,7 @@
     {
       "path": "pages/catalog/index",
       "style": {
-        "navigationBarTitleText": "分类场景"
+        "navigationStyle": "custom"
       }
     },
     {
@@ -22,6 +22,42 @@
       "path": "pages/mine/index",
       "style": {
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/repair/create",
+      "style": {
+        "navigationBarTitleText": "发起报修"
+      }
+    },
+    {
+      "path": "pages/repair/progress",
+      "style": {
+        "navigationBarTitleText": "报修进度"
+      }
+    },
+    {
+      "path": "pages/repair/mine",
+      "style": {
+        "navigationBarTitleText": "我的报修"
+      }
+    },
+    {
+      "path": "pages/repair/technician-workorders",
+      "style": {
+        "navigationBarTitleText": "维修工单"
+      }
+    },
+    {
+      "path": "pages/repair/inspection-tasks",
+      "style": {
+        "navigationBarTitleText": "巡检任务"
+      }
+    },
+    {
+      "path": "pages/repair/admin-console",
+      "style": {
+        "navigationBarTitleText": "管理控制台"
       }
     },
     {
@@ -75,7 +111,7 @@
     {
       "path": "pages/member/index",
       "style": {
-        "navigationBarTitleText": "星球会员"
+        "navigationStyle": "custom"
       }
     },
     {

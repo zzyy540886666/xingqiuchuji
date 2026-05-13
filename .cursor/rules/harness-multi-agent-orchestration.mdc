@@ -1,0 +1,135 @@
+---
+description: 强制多 Agent 协作编排：Orchestrator 调度 Doer/Reviewer 按十阶段推进、门禁判定与精确回退。
+alwaysApply: true
+---
+
+# Harness Multi Agent Orchestration
+
+本规则用于在本仓库内强制执行多 Agent 协作，而不是单 Agent 串行代办。
+
+## 1. 角色定义（强制）
+
+1. Orchestrator（主调度）
+   - 负责阶段推进、任务分派、门禁检查、回退决策、升级人工决策。
+   - 不直接承担完整执行与完整评判。
+2. Doer（执行 Agent）
+   - 负责：需求分析、任务拆分、编码实现、单测编写、部署准备、部署执行。
+   - 不负责最终通过判定。
+3. Reviewer（评判 Agent）
+   - 负责：需求评审、编码评审、CI 门禁判定、最终确认判定。
+   - 不负责直接修改业务实现代码。
+
+## 2. 必须读取的基线文件
+
+Orchestrator 在每个新任务开始时，必须先读取：
+
+1. `AGENT-ROLE.md`
+2. `AGENT-DOER.md`
+3. `AGENT-REVIEWER.md`
+4. `.harness/rules/*`
+5. `.harness/changes/README.md`
+
+## 3. 十阶段分工映射（强制）
+
+1. 阶段1 需求分析 -> Doer
+2. 阶段2 需求评审（<=3轮） -> Reviewer
+3. 阶段3 任务拆分 -> Doer
+4. 阶段4 编码实现 -> Doer
+5. 阶段5 编码评审（<=2轮） -> Reviewer
+6. 阶段6 单测编写 -> Doer
+7. 阶段7 CI 门禁判定 -> Reviewer
+8. 阶段8 部署准备 -> Doer
+9. 阶段9 部署执行 -> Doer
+10. 阶段10 最终确认 -> Reviewer
+
+Orchestrator 必须按上面分工调用，不得让同一角色越权吞并全部阶段。
+
+## 4. 交接协议（强制字段）
+
+任何阶段从一个 Agent 交接到另一个 Agent 时，必须提供以下字段：
+
+1. `requirement_id`
+2. `current_stage`
+3. `target_stage`
+4. `input_artifacts`（changes 内路径）
+5. `expected_outputs`（changes 内路径）
+6. `gates`（本阶段门禁）
+7. `fallback_stage_on_fail`
+8. `open_risks`
+9. `unverified_items`
+
+缺任一字段，Orchestrator 必须拒绝推进下一阶段。
+
+## 5. Changes 目录协作规则（强制）
+
+每个需求必须创建：
+
+`.harness/changes/<需求ID>/`
+
+并且按固定产物链路协作：
+
+1. `01-需求分析文档.md`
+2. `02-任务拆分清单.md`
+3. `03-编码报告.md`
+4. `04-评审记录-vN.md`
+5. `05-CI结果.md`
+6. `06-部署验证.md`
+
+Reviewer 只基于 changes 产物判定，不能只基于聊天口头结论判定。
+
+## 6. 门禁与精确回退（强制）
+
+CI 门禁必须满足：
+
+1. `status=SUCCESS`
+2. `tests>0`
+3. `passed=total`
+
+精确回退规则：
+
+1. CI 失败且 `tests=0` -> 回退阶段6（单测编写）
+2. CI 失败且测试未全通过 -> 回退阶段4（编码实现）
+3. 编译错误 -> 回退阶段4（编码实现）
+4. 需求不符 -> 回退阶段1（需求分析）
+5. 部署参数错误 -> 回退阶段8（部署准备）
+6. 最终验收不通过 -> 回退阶段5或1（按根因）
+
+禁止使用“从头开始”作为默认回退动作。
+
+## 7. 评审轮次上限与升级（强制）
+
+1. 需求评审最多 3 轮，超限升级人工决策。
+2. 编码评审最多 2 轮，超限升级人工决策。
+3. 超限后 Orchestrator 必须停止自动推进。
+
+## 8. 人工确认点（强制）
+
+必须保留并记录以下确认点：
+
+1. 需求待决议确认
+2. 计划评审后确认
+3. 编码评审后确认
+4. 部署环境参数确认
+5. 最终交付确认
+
+## 9. 输出可观测要求（强制）
+
+Orchestrator 在每阶段结束时必须输出：
+
+1. 当前阶段
+2. 本阶段执行角色（Doer/Reviewer）
+3. 已加载规则与 Skill
+4. 本阶段产物路径
+5. 门禁检查结果
+6. 下一阶段
+7. 若失败则回退目标阶段
+
+## 10. 冲突优先级
+
+冲突时按以下优先级：
+
+1. 用户明确指令
+2. 本规则（多 Agent 编排）
+3. `.cursor/rules/harness-mandatory-execution.mdc`
+4. `AGENT-ROLE.md`
+5. 其他通用规则

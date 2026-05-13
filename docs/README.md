@@ -11,3 +11,12 @@
 | [api/](./api/) | **OpenAPI YAML（真源）** + 接口通则 + `API-*.md` 补充说明 |
 
 开发时请在 Cursor 中启用项目 **Rules**（`.cursor/rules/`）与 **Skills**（`.cursor/skills/`），并与 `api/` 契约保持一致。
+
+## 本轮补充（报修工单体系）
+
+根据 `报修工单小程序系统功能清单.xlsx`，已补充以下文档：
+
+- `architecture/04-报修工单系统架构与领域边界.md`
+- `frontend/FE-13-报修工单与巡检小程序.md`
+- `backend/BE-13-报修工单巡检与运维后台.md`
+- `api/API-07-报修工单巡检与运维后台.md`
