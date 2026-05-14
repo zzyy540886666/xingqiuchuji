@@ -1,8 +1,7 @@
 ---
+alwaysApply: false
 description: 星球出机项目技术栈与文档契约（UniApp + Java Spring Boot）
-alwaysApply: true
 ---
-
 # 星球出机 - 项目规则
 
 ## 技术栈（已定）
