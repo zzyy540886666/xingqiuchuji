@@ -25,6 +25,10 @@ pnpm-debug.log*
 
 # Test and coverage output
 coverage/
+.harness/ci/
+
+# Java build output
+target/
 
 # Editor and OS files
 .idea/
@@ -37,3 +41,8 @@ project.private.config.json
 
 # Local generated files
 *.local
+.claude/settings.local.json
+.tmp-chrome-figma/
+outputs/
+figma-*.png
+uploads/

@@ -1,0 +1,94 @@
+{
+  "pages": [
+    { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/category/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/community/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/profile/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/search/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/product-detail/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/activity-detail/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/order-confirm/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/membership-center/index", "style": { "navigationStyle": "custom" } }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/order",
+      "pages": [
+        { "path": "list", "style": { "navigationBarTitleText": "我的订单" } },
+        { "path": "detail", "style": { "navigationBarTitleText": "订单详情" } },
+        { "path": "pay-result", "style": { "navigationBarTitleText": "支付结果" } },
+        { "path": "confirm", "style": { "navigationStyle": "custom" } }
+      ]
+    },
+    {
+      "root": "pages/member",
+      "pages": [
+        { "path": "index", "style": { "navigationStyle": "custom" } }
+      ]
+    },
+    {
+      "root": "pages/wallet",
+      "pages": [
+        { "path": "index", "style": { "navigationBarTitleText": "我的钱包" } },
+        { "path": "withdraw", "style": { "navigationBarTitleText": "提现" } }
+      ]
+    },
+    {
+      "root": "pages/asset",
+      "pages": [
+        { "path": "list", "style": { "navigationBarTitleText": "我的资产" } },
+        { "path": "detail", "style": { "navigationBarTitleText": "设备详情" } },
+        { "path": "trusteeship", "style": { "navigationBarTitleText": "托管上架" } }
+      ]
+    },
+    {
+      "root": "pages/distribution",
+      "pages": [
+        { "path": "home", "style": { "navigationBarTitleText": "分销中心" } },
+        { "path": "invite", "style": { "navigationBarTitleText": "推广邀请" } },
+        { "path": "team", "style": { "navigationBarTitleText": "我的团队" } },
+        { "path": "commission", "style": { "navigationBarTitleText": "佣金明细" } }
+      ]
+    },
+    {
+      "root": "pages/repair",
+      "pages": [
+        { "path": "create", "style": { "navigationBarTitleText": "报修提交" } },
+        { "path": "progress", "style": { "navigationBarTitleText": "报修进度" } },
+        { "path": "mine", "style": { "navigationBarTitleText": "我的报修" } }
+      ]
+    },
+    {
+      "root": "pages/workorder",
+      "pages": [
+        { "path": "hall", "style": { "navigationBarTitleText": "工单大厅" } },
+        { "path": "process", "style": { "navigationBarTitleText": "工单处理" } }
+      ]
+    },
+    {
+      "root": "pages/inspection",
+      "pages": [
+        { "path": "task-list", "style": { "navigationBarTitleText": "巡检任务" } }
+      ]
+    },
+    {
+      "root": "pages/admin",
+      "pages": [
+        { "path": "dashboard", "style": { "navigationBarTitleText": "管理看板" } },
+        { "path": "notifications", "style": { "navigationBarTitleText": "消息提醒" } }
+      ]
+    },
+    {
+      "root": "pages/im",
+      "pages": [
+        { "path": "conversations", "style": { "navigationBarTitleText": "消息" } },
+        { "path": "chat", "style": { "navigationBarTitleText": "聊天" } }
+      ]
+    }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#F5F6F8",
+    "backgroundTextStyle": "dark"
+  }
+}

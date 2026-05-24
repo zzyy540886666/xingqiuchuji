@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 description: 星球出机开发规则（安全、契约、工程化、UI 图标）——常驻强制
 ---
 # 星球出机 - 开发规则（团队约定）

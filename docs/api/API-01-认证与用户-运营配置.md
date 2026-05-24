@@ -33,7 +33,7 @@
 
 ## 2. 当前用户
 
-**GET** `/users/me`  
+**GET** `/users/me`
 Header：`Authorization`
 
 ## 3. 运营配置聚合
@@ -52,6 +52,12 @@ Header：`Authorization`
   "trusteeshipPricingNote": "string"
 }
 ```
+
+活动详情与商品目录不再通过该聚合配置中的静态数组作为真源：
+
+- 活动读取 `/config/activities` 与 `/config/activities/{id}`，数据源为 `marketing_activities`。
+- 商品页左侧筛选读取 `/catalog/filters`，数据源为 `catalog_filter_groups` 与 `catalog_filter_options`。
+- 后台管理分别通过 `/admin/activities` 和 `/admin/catalog-filters` 编辑上述内容。
 
 ## 4. 错误码（节选）
 

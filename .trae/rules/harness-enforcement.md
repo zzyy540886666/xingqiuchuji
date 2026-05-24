@@ -1,8 +1,7 @@
 ---
-alwaysApply: true
+alwaysApply: false
 description: Harness 流程强制门禁规则——确保每次编码任务 100% 经过 Skill 切换、产物产出、质量门禁
 ---
-
 # Harness 流程强制门禁
 
 本规则为 `.harness/` 体系的执行层。每次收到开发任务时，Agent 必须逐项自检。

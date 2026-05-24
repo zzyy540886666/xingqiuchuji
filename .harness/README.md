@@ -1,33 +1,37 @@
 # Harness 体系总览
 
-本目录严格按 `docs/让ai上手企业项目的harness体系构建.md` 组织，目标是让 Agent 在企业项目里按统一流程稳定交付。
+`.harness/` 是高风险或正式交付任务的按需工具箱，不是普通开发任务的前置流程。Codex 默认按目标直接实现和验证；需要证据链时再启用本目录。
 
-## 目录结构
+## 默认执行
 
-- `rules/`：不随需求变化的稳定约束（工程结构、流程门禁、硬性规范）
-- `skills/`：结构化 SOP（编码、评审、测试）
-- `wiki/`：按需查阅知识（链路、数据模型、核心流程）
-- `changes/`：全流程留痕（需求到部署验证）
-- `agent/`：可选放置 agent 辅助文档（主角色定义在仓库根目录）
+适用于一般功能、缺陷修复、UI、局部重构、文档、配置和测试调整：
 
-## 使用方式
+- 不预先写需求分析、任务拆分或编码报告。
+- 不因任务开始而加载全部 Rules/Skills/Wiki。
+- 不创建 Changes 目录或流程分支。
+- 实施后运行聚焦验证，并在最终回复中报告结果。
 
-1. 会话常驻加载：`/AGENT-ROLE.md` + `rules/*`
-2. 阶段触发加载：编码阶段加载 `skills/coding-skill/`，评审阶段加载 `skills/expert-reviewer/`，测试阶段加载 `skills/unit-test-write/`
-3. 按需查询：`wiki/*` 不主动加载，按任务检索
+## 受控交付
 
-## Cursor 自动触发绑定
+触及契约破坏性变更、数据迁移、安全/鉴权、资金/订单/支付、生产集成、部署发布，或用户要求正式审计/评审/交付材料时启用：
 
-为提高自动触发稳定性，已添加以下绑定：
+- 读取 `AGENT-ROLE.md` 以及本次风险所需的 Rule/Skill/领域文档。
+- 使用 `.harness/changes/<需求ID>/delivery.md` 作为唯一默认正式产物。
+- 仅在实际独立评审时增加 `review-vN.md`，仅在实际部署时增加 `deployment.md`。
 
-1. 全局强制规则：`.cursor/rules/harness-mandatory-execution.mdc`（alwaysApply）
-2. 执行型 Skill：`.cursor/skills/harness-doer/SKILL.md`
-3. 评判型 Skill：`.cursor/skills/harness-reviewer/SKILL.md`
+## 目录
 
-## 质量门禁（可程序化）
+- `rules/`：需要对应风险时才加载的稳定约束。
+- `skills/`：受控交付中按实际工作内容加载的 SOP。
+- `wiki/`：按业务主题查询的知识索引。
+- `changes/`：受控交付证据，不用于日常小任务。
 
-- CI 状态必须 `status=SUCCESS`
-- 测试数量必须 `tests>0`
-- 测试通过必须 `passed=total`
+## 门禁
 
-不满足任一条件，按 `/AGENT-ROLE.md` 回退规则精确回退到对应阶段。
+高风险运行时代码或部署交付前使用：
+
+```bash
+npm run harness:ci
+```
+
+通过结论必须有 `status=SUCCESS`、`tests>0`、`passed=total` 的记录。普通任务应运行匹配影响面的聚焦验证，而不是为满足形式要求执行无关流程。

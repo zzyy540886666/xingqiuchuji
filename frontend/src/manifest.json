@@ -1,0 +1,20 @@
+{
+  "name": "星球出机",
+  "appid": "__UNI__XINGQIU",
+  "description": "机器人租赁、购买、软件服务平台小程序前端",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "mp-weixin": {
+    "appid": "touristappid",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true
+  },
+  "uniStatistics": {
+    "enable": false
+  }
+}

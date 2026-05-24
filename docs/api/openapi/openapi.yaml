@@ -25,6 +25,10 @@ tags:
     description: 社区与 IM
   - name: Distribution
     description: 分销与埋点
+  - name: UserCenter
+    description: 我的页面、钱包、资产、消息和会员中心
+  - name: 后台管理
+    description: 后台管理网站接口
 
 paths:
   /meta/ping:
@@ -47,6 +51,520 @@ paths:
                   data:
                     type: string
                     example: pong
+  /auth/wechat:
+    post:
+      tags: [Auth]
+      summary: 微信小程序一键登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: 登录成功，返回 JWT 与用户摘要
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+  /users/me:
+    get:
+      tags: [UserCenter]
+      summary: 当前登录用户摘要
+      responses:
+        '200':
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummaryEnvelope'
+  /users/me/membership:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户会员信息
+      responses:
+        '200':
+          description: 会员信息
+  /membership/planet-cards:
+    get:
+      tags: [UserCenter]
+      summary: 可售星球卡列表
+      responses:
+        '200':
+          description: 星球卡列表
+  /wallet:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户钱包余额
+      responses:
+        '200':
+          description: 钱包余额，金额单位为分
+  /wallet/ledger:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户钱包流水
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        '200':
+          description: 钱包流水分页
+  /assets/robots:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户资产列表
+      responses:
+        '200':
+          description: 资产列表
+  /assets/robots/{assetId}/dashboard:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户资产收益面板
+      parameters:
+        - in: path
+          name: assetId
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 资产收益面板
+  /distribution/me:
+    get:
+      tags: [Distribution]
+      summary: 当前用户分销信息
+      responses:
+        '200':
+          description: 邀请码和团队统计
+  /notifications:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户消息列表
+      responses:
+        '200':
+          description: 消息分页
+  /notifications/read:
+    post:
+      tags: [UserCenter]
+      summary: 批量标记消息已读
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 标记成功
+  /catalog/filters:
+    get:
+      tags: [Catalog]
+      summary: 商品页左侧筛选菜单
+      security: []
+      responses:
+        '200':
+          description: 启用菜单组及其选项
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogFilterGroupListEnvelope'
+  /catalog/skus:
+    get:
+      tags: [Catalog]
+      summary: 商品列表
+      security: []
+      parameters:
+        - { in: query, name: type, schema: { type: string, enum: [RENT, BUY, SOFTWARE] } }
+        - { in: query, name: brandId, schema: { type: integer, format: int64 } }
+        - { in: query, name: modelId, schema: { type: integer, format: int64 } }
+        - { in: query, name: minPrice, schema: { type: integer, format: int64 } }
+        - { in: query, name: maxPrice, schema: { type: integer, format: int64 } }
+        - { in: query, name: q, schema: { type: string } }
+      responses:
+        '200':
+          description: 商品分页列表
+  /catalog/skus/{skuId}:
+    get:
+      tags: [Catalog]
+      summary: 商品详情，含图片、视频、价格、服务和说明区块
+      security: []
+      parameters:
+        - in: path
+          name: skuId
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 商品详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkuDetailEnvelope'
+  /config/activities:
+    get:
+      tags: [Catalog]
+      summary: 已发布且当前有效的活动列表
+      security: []
+      responses:
+        '200':
+          description: 活动列表
+  /config/activities/{id}:
+    get:
+      tags: [Catalog]
+      summary: 活动详情
+      security: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: 活动详情
+  /admin/upload/image:
+    post:
+      tags: [后台管理]
+      summary: 后台上传图片
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功，返回可直接访问的图片地址
+  /admin/catalog-filters:
+    get:
+      tags: [后台管理]
+      summary: 管理商品筛选菜单
+      responses:
+        '200': { description: 菜单列表 }
+    post:
+      tags: [后台管理]
+      summary: 创建商品筛选菜单组及选项
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCatalogFilterUpsert' }
+      responses:
+        '200': { description: 创建成功 }
+  /admin/catalog-filters/{id}:
+    put:
+      tags: [后台管理]
+      summary: 更新商品筛选菜单组及选项
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCatalogFilterUpsert' }
+      responses:
+        '200': { description: 更新成功 }
+    delete:
+      tags: [后台管理]
+      summary: 删除商品筛选菜单组
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 删除成功 }
+  /admin/brands:
+    get:
+      tags: [后台管理]
+      summary: 品牌主数据列表
+      responses:
+        '200':
+          description: 品牌列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandListEnvelope'
+    post:
+      tags: [后台管理]
+      summary: 创建品牌主数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminBrandUpsert' }
+      responses:
+        '200': { description: 创建成功 }
+  /admin/brands/{id}:
+    put:
+      tags: [后台管理]
+      summary: 更新品牌主数据
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminBrandUpsert' }
+      responses:
+        '200': { description: 更新成功 }
+    delete:
+      tags: [后台管理]
+      summary: 删除品牌主数据
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 删除成功 }
+  /admin/activities:
+    get:
+      tags: [后台管理]
+      summary: 活动详情管理列表
+      responses:
+        '200': { description: 活动分页列表 }
+    post:
+      tags: [后台管理]
+      summary: 创建活动详情
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActivityUpsert' }
+      responses:
+        '200': { description: 创建成功 }
+  /admin/activities/{id}:
+    get:
+      tags: [后台管理]
+      summary: 活动编辑详情
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 活动详情 }
+    put:
+      tags: [后台管理]
+      summary: 更新活动详情
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminActivityUpsert' }
+      responses:
+        '200': { description: 更新成功 }
+    delete:
+      tags: [后台管理]
+      summary: 删除活动
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 删除成功 }
+  /admin/skus:
+    get:
+      tags: [后台管理]
+      summary: 后台商品列表
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: keyword
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, enum: [RENT, BUY, SOFTWARE] }
+        - in: query
+          name: status
+          schema: { type: string, enum: [ON_SHELF, OFF_SHELF, DRAFT] }
+      responses:
+        '200':
+          description: 商品分页
+    post:
+      tags: [后台管理]
+      summary: 后台新增商品
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSkuUpsert'
+      responses:
+        '200':
+          description: 新增成功
+  /admin/skus/{id}:
+    get:
+      tags: [后台管理]
+      summary: 后台商品详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 商品详情
+    put:
+      tags: [后台管理]
+      summary: 后台编辑商品
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSkuUpsert'
+      responses:
+        '200':
+          description: 保存成功
+  /admin/skus/{id}/toggle-shelf:
+    post:
+      tags: [后台管理]
+      summary: 后台切换商品上下架
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 切换成功
+  /admin/community/posts:
+    get:
+      tags: [后台管理]
+      summary: 后台社区帖子列表
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [AUDITING, APPROVED, REJECTED, MANUAL_REVIEW, REVOKED] }
+        - in: query
+          name: circleId
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: keyword
+          schema: { type: string }
+      responses:
+        '200':
+          description: 帖子分页
+  /admin/community/posts/{id}/revoke:
+    post:
+      tags: [后台管理]
+      summary: 后台撤销帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 撤销成功
+  /admin/community/posts/{id}/restore:
+    post:
+      tags: [后台管理]
+      summary: 后台恢复帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 恢复成功
+  /admin/community/posts/{id}/pin:
+    post:
+      tags: [后台管理]
+      summary: 后台置顶帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 置顶成功
+  /admin/community/posts/{id}/unpin:
+    post:
+      tags: [后台管理]
+      summary: 后台取消置顶帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 取消成功
+  /admin/community/topics:
+    get:
+      tags: [后台管理]
+      summary: 后台社区话题列表
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: keyword
+          schema: { type: string }
+      responses:
+        '200':
+          description: 话题分页
+  /admin/community/topics/{id}/revoke:
+    post:
+      tags: [后台管理]
+      summary: 后台撤销话题下的可见帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 撤销成功
+  /admin/community/topics/{id}/restore:
+    post:
+      tags: [后台管理]
+      summary: 后台恢复话题下已撤销帖子
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 恢复成功
+  /admin/community/analytics:
+    get:
+      tags: [后台管理]
+      summary: 后台社区运营数据
+      responses:
+        '200':
+          description: 社区运营统计、趋势和热门帖子
 
 components:
   securitySchemes:
@@ -55,6 +573,171 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: 小程序登录后获得的 accessToken
+  schemas:
+    LoginResponseEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            expiresIn: { type: integer, format: int64 }
+            user:
+              $ref: '#/components/schemas/UserSummary'
+    UserSummaryEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          $ref: '#/components/schemas/UserSummary'
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nickname: { type: string }
+        avatarUrl: { type: string }
+        membershipLevel: { type: integer }
+        isNativeResident: { type: boolean }
+    CatalogFilterGroupListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/CatalogFilterGroup' }
+    CatalogFilterGroup:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string }
+        title: { type: string }
+        filterField: { type: string, enum: [BRAND_ID, PRICE_RANGE, MODEL_ID, KEYWORD] }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/CatalogFilterOption' }
+    CatalogFilterOption:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        label: { type: string }
+        value: { type: string }
+        minPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
+        maxPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
+        sortOrder: { type: integer }
+    BrandListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Brand' }
+    Brand:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        logoUrl: { type: string }
+        sortOrder: { type: integer }
+    AdminBrandUpsert:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        logoUrl: { type: string }
+        sortOrder: { type: integer }
+    SkuDetailEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/SkuDetail' }
+    SkuDetail:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        subtitle: { type: string }
+        brand: { type: string }
+        type: { type: string, enum: [RENT, BUY, SOFTWARE] }
+        image: { type: string }
+        priceAmount: { type: integer, format: int64, description: 金额单位为分 }
+        originalPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
+        stock: { type: integer }
+        adaptedScenesText: { type: string }
+        stockStatusText: { type: string }
+        deliveryText: { type: string }
+        specs: { type: object, additionalProperties: { type: string } }
+        tags: { type: array, items: { type: string } }
+        mediaItems:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              type: { type: string, enum: [IMAGE, VIDEO] }
+              sortOrder: { type: integer }
+        prices:
+          type: array
+          items:
+            type: object
+            properties:
+              priceType: { type: string, enum: [DAILY_RENT, LEASE_BUY, BUY, SUBSCRIPTION] }
+              priceMinor: { type: integer, format: int64 }
+              minDuration: { type: integer }
+              maxDuration: { type: integer }
+        services: { type: array, items: { type: object } }
+        detailSections: { type: array, items: { type: object } }
+    AdminCatalogFilterUpsert:
+      type: object
+      required: [code, title, filterField, options]
+      properties:
+        code: { type: string }
+        title: { type: string }
+        filterField: { type: string, enum: [BRAND_ID, PRICE_RANGE, MODEL_ID, KEYWORD] }
+        sortOrder: { type: integer }
+        enabled: { type: boolean }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/CatalogFilterOption' }
+    AdminActivityUpsert:
+      type: object
+      required: [title, startAt, status]
+      properties:
+        title: { type: string }
+        subtitle: { type: string }
+        tag: { type: string }
+        coverUrl: { type: string }
+        videoUrl: { type: string }
+        description: { type: string }
+        linkUrl: { type: string }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        sortOrder: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        content: { type: array, items: { type: object } }
+    AdminSkuUpsert:
+      type: object
+      required: [name, type, priceFen]
+      properties:
+        name: { type: string }
+        brand: { type: string }
+        brandId: { type: integer, format: int64 }
+        type: { type: string, enum: [RENT, BUY, SOFTWARE] }
+        priceFen: { type: integer, format: int64, description: 金额单位为分 }
+        specs: { type: string }
+        models: { type: string }
+        coverImage: { type: string }
+        subtitle: { type: string }
+        stock: { type: integer, minimum: 0 }
+        originalPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
+        adaptedScenesText: { type: string }
+        stockStatusText: { type: string }
+        deliveryText: { type: string }
+        media: { type: array, items: { type: object } }
+        prices: { type: array, items: { type: object } }
+        tags: { type: array, items: { type: string } }
+        services: { type: array, items: { type: object } }
+        detailSections: { type: array, items: { type: object } }
 
 security:
   - bearerAuth: []
