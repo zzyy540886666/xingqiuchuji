@@ -19,15 +19,30 @@ import java.io.IOException;
 public class TraceIdFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(TraceIdFilter.class);
+    private static final String TRACE_ID_HEADER = "X-Trace-Id";
+    private static final int MAX_TRACE_ID_LENGTH = 64;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        TraceIdUtil.generate();
+        String clientTraceId = request.getHeader(TRACE_ID_HEADER);
+        if (isValidTraceId(clientTraceId)) {
+            TraceIdUtil.set(clientTraceId);
+        } else {
+            TraceIdUtil.generate();
+        }
+        response.setHeader(TRACE_ID_HEADER, TraceIdUtil.get());
         try {
             filterChain.doFilter(request, response);
         } finally {
             TraceIdUtil.clear();
         }
+    }
+
+    private boolean isValidTraceId(String traceId) {
+        return traceId != null
+                && !traceId.isBlank()
+                && traceId.length() <= MAX_TRACE_ID_LENGTH
+                && traceId.matches("[A-Za-z0-9._:-]+");
     }
 }

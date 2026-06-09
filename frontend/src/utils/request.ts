@@ -1,5 +1,6 @@
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 const API_PREFIX = "/api/v1";
+let traceCounter = 0;
 
 export type ApiResult<T> = {
   success: boolean;
@@ -19,9 +20,11 @@ export type RequestOptions = {
 };
 
 export function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const clientTraceId = generateTraceId();
   const token = uni.getStorageSync("xq_access_token");
   const header: Record<string, string> = {
     "Content-Type": "application/json; charset=utf-8",
+    "X-Trace-Id": clientTraceId,
   };
 
   if (token) {
@@ -60,3 +63,10 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
 }
 
 export const apiPrefix = API_PREFIX;
+
+function generateTraceId(): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  traceCounter = (traceCounter + 1) % 10000;
+  return `mp-${ts}-${rand}-${traceCounter}`;
+}
