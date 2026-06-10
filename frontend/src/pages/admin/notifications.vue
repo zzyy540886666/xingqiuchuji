@@ -1,6 +1,8 @@
 <template>
   <view class="page">
-    <Skeleton v-if="loading" :rows="4" />
+    <template v-if="loading">
+      <Skeleton variant="admin-notifications" />
+    </template>
     <EmptyState v-else-if="list.length === 0" text="暂无消息" />
     <view v-else class="notification-list">
       <view v-for="item in list" :key="item.id" class="notification-item" :class="{ unread: !item.read }" @tap="markRead(item.id)">
@@ -18,7 +20,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import Skeleton from "../../components/Skeleton.vue";
+import Skeleton from "../../components/PageSkeleton.vue";
 import EmptyState from "../../components/EmptyState.vue";
 import { getNotifications, markNotificationsRead } from "../../services/repair";
 
@@ -48,3 +50,4 @@ async function markRead(id: string) {
 .notification-body { display: block; font-size: 24rpx; color: #6b7280; margin-bottom: 8rpx; }
 .notification-time { font-size: 22rpx; color: #9ca3af; }
 </style>
+

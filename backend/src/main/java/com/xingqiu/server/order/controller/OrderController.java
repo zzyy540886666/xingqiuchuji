@@ -9,11 +9,15 @@ import com.xingqiu.server.order.dto.PreviewResponse;
 import com.xingqiu.server.order.service.OrderService;
 import com.xingqiu.server.order.service.PreviewService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/orders")
+@Validated
 public class OrderController {
 
     private final OrderService orderService;
@@ -49,8 +53,8 @@ public class OrderController {
     public ApiResponse<PageResult<OrderResponse>> listOrders(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int pageSize) {
         Long userId = getCurrentUserId();
         PageResult<OrderResponse> result = orderService.listOrders(userId, status, type, page, pageSize);
         return ApiResponse.ok(result);

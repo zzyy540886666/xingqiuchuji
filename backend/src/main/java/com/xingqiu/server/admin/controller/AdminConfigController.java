@@ -75,25 +75,25 @@ public class AdminConfigController {
 
     @GetMapping("/banners")
     public ApiResponse<List<Map<String, Object>>> listBanners() {
-        return ApiResponse.ok(readList("admin.banners", defaultBanners()));
+        return ApiResponse.ok(readList("banners", defaultBanners()));
     }
 
     @PostMapping("/banners")
     @Transactional
     public ApiResponse<Map<String, Object>> createBanner(@RequestBody Map<String, Object> body) {
-        return ApiResponse.ok(upsertItem("admin.banners", defaultBanners(), null, normalizeBanner(body)));
+        return ApiResponse.ok(upsertItem("banners", defaultBanners(), null, normalizeBanner(body)));
     }
 
     @PutMapping("/banners/{id}")
     @Transactional
     public ApiResponse<Map<String, Object>> updateBanner(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        return ApiResponse.ok(upsertItem("admin.banners", defaultBanners(), id, normalizeBanner(body)));
+        return ApiResponse.ok(upsertItem("banners", defaultBanners(), id, normalizeBanner(body)));
     }
 
     @DeleteMapping("/banners/{id}")
     @Transactional
     public ApiResponse<Void> deleteBanner(@PathVariable Long id) {
-        deleteItem("admin.banners", defaultBanners(), id);
+        deleteItem("banners", defaultBanners(), id);
         return ApiResponse.ok(null);
     }
 
@@ -158,7 +158,7 @@ public class AdminConfigController {
 
     private Map<String, Object> normalizeBanner(Map<String, Object> body) {
         Map<String, Object> item = new LinkedHashMap<>(body);
-        item.putIfAbsent("position", "HOME_BANNER");
+        item.putIfAbsent("position", "HOME_RENT_CARD");
         item.putIfAbsent("type", "IMAGE");
         item.putIfAbsent("status", "ACTIVE");
         item.putIfAbsent("sortOrder", 0);
@@ -229,7 +229,7 @@ public class AdminConfigController {
     }
 
     private void localizeLegacyText(String key, List<Map<String, Object>> items) {
-        if ("admin.banners".equals(key)) {
+        if ("banners".equals(key)) {
             for (Map<String, Object> item : items) {
                 String title = String.valueOf(item.getOrDefault("title", ""));
                 if ("Spring rental campaign".equals(title)) item.put("title", "春季租赁活动");
@@ -281,6 +281,7 @@ public class AdminConfigController {
             config.setValueJson(objectMapper.writeValueAsString(items));
             config.setEffectiveAt(LocalDateTime.now());
             saveConfig(config);
+            adminConfigService.refreshCache();
         } catch (Exception ex) {
             throw new IllegalStateException("写入配置失败：" + key, ex);
         }

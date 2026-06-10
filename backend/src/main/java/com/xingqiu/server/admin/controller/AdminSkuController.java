@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xingqiu.server.appconfig.service.CatalogPlacementService;
 import com.xingqiu.server.catalog.domain.Sku;
 import com.xingqiu.server.catalog.domain.Brand;
 import com.xingqiu.server.catalog.domain.SkuDetailSection;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/admin/skus")
@@ -45,6 +47,7 @@ public class AdminSkuController {
     private final SkuDetailSectionMapper skuDetailSectionMapper;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
+    private final CatalogPlacementService catalogPlacementService;
 
     public AdminSkuController(SkuMapper skuMapper, BrandMapper brandMapper, SkuMediaMapper skuMediaMapper,
                               SkuPriceMapper skuPriceMapper,
@@ -52,7 +55,8 @@ public class AdminSkuController {
                               SkuServiceItemMapper skuServiceItemMapper,
                               SkuDetailSectionMapper skuDetailSectionMapper,
                               ObjectMapper objectMapper,
-                              CacheManager cacheManager) {
+                              CacheManager cacheManager,
+                              CatalogPlacementService catalogPlacementService) {
         this.skuMapper = skuMapper;
         this.brandMapper = brandMapper;
         this.skuMediaMapper = skuMediaMapper;
@@ -62,6 +66,7 @@ public class AdminSkuController {
         this.skuDetailSectionMapper = skuDetailSectionMapper;
         this.objectMapper = objectMapper;
         this.cacheManager = cacheManager;
+        this.catalogPlacementService = catalogPlacementService;
     }
 
     @GetMapping
@@ -73,10 +78,24 @@ public class AdminSkuController {
             @RequestParam(required = false) String status) {
         LambdaQueryWrapper<Sku> wrapper = new LambdaQueryWrapper<>();
         if (keyword != null && !keyword.isBlank()) {
-            wrapper.like(Sku::getName, keyword);
+            String term = keyword.trim();
+            List<Long> brandIds = brandMapper.selectList(new LambdaQueryWrapper<Brand>().like(Brand::getName, term))
+                    .stream().map(Brand::getId).toList();
+            wrapper.and(query -> {
+                query.like(Sku::getName, term)
+                        .or().like(Sku::getDescription, term)
+                        .or().like(Sku::getSubtitle, term);
+                if (!brandIds.isEmpty()) {
+                    query.or().in(Sku::getBrandId, brandIds);
+                }
+            });
         }
         if (type != null && !type.isBlank()) {
-            wrapper.eq(Sku::getType, Sku.SkuType.valueOf(type));
+            try {
+                wrapper.eq(Sku::getType, Sku.SkuType.valueOf(type));
+            } catch (IllegalArgumentException ex) {
+                throw new BizException(ErrorCode.BAD_REQUEST, "Invalid SKU type: " + type);
+            }
         }
         Sku.SkuStatus skuStatus = toSkuStatus(status);
         if (skuStatus != null) {
@@ -85,7 +104,8 @@ public class AdminSkuController {
         wrapper.orderByDesc(Sku::getCreatedAt);
 
         Page<Sku> p = skuMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        List<Map<String, Object>> items = p.getRecords().stream().map(this::toRow).toList();
+        Set<Long> recommendedIds = catalogPlacementService.getRecommendedSkuIds();
+        List<Map<String, Object>> items = p.getRecords().stream().map(sku -> toRow(sku, recommendedIds)).toList();
         return ApiResponse.ok(PageResult.of(items, p.getTotal(), page, pageSize));
     }
 
@@ -142,6 +162,15 @@ public class AdminSkuController {
         return ApiResponse.ok(null);
     }
 
+    @PostMapping("/{id}/toggle-recommend")
+    @Transactional
+    public ApiResponse<Map<String, Object>> toggleRecommend(@PathVariable Long id) {
+        requireSku(id);
+        boolean recommended = catalogPlacementService.toggleRecommendedSku(id);
+        clearSkuCache();
+        return ApiResponse.ok(Map.of("recommended", recommended));
+    }
+
     @PatchMapping("/{id}/status")
     @Transactional
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
@@ -186,8 +215,12 @@ public class AdminSkuController {
     }
 
     private Map<String, Object> toRow(Sku sku) {
+        return toRow(sku, catalogPlacementService.getRecommendedSkuIds());
+    }
+
+    private Map<String, Object> toRow(Sku sku, Set<Long> recommendedIds) {
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", sku.getId());
+        row.put("id", String.valueOf(sku.getId()));
         row.put("name", sku.getName());
         row.put("type", sku.getType() == null ? "RENT" : sku.getType().name());
         row.put("brandId", sku.getBrandId());
@@ -204,6 +237,7 @@ public class AdminSkuController {
         row.put("updatedAt", sku.getUpdatedAt());
         row.put("priceFen", firstPrice(sku.getId()));
         row.put("coverImage", firstImage(sku.getId()));
+        row.put("recommended", recommendedIds.contains(sku.getId()));
         return row;
     }
 
@@ -317,17 +351,16 @@ public class AdminSkuController {
     }
 
     private Long firstPrice(Long skuId) {
-        List<SkuPrice> prices = skuPriceMapper.selectList(new LambdaQueryWrapper<SkuPrice>()
-                .eq(SkuPrice::getSkuId, skuId)
-                .last("LIMIT 1"));
+        List<SkuPrice> prices = skuPriceMapper.selectPage(new Page<SkuPrice>(1, 1),
+                new LambdaQueryWrapper<SkuPrice>().eq(SkuPrice::getSkuId, skuId)).getRecords();
         return prices.isEmpty() ? 0L : prices.get(0).getPriceMinor();
     }
 
     private String firstImage(Long skuId) {
-        List<SkuMedia> media = skuMediaMapper.selectList(new LambdaQueryWrapper<SkuMedia>()
-                .eq(SkuMedia::getSkuId, skuId)
-                .orderByAsc(SkuMedia::getSortOrder)
-                .last("LIMIT 1"));
+        List<SkuMedia> media = skuMediaMapper.selectPage(new Page<SkuMedia>(1, 1),
+                new LambdaQueryWrapper<SkuMedia>()
+                        .eq(SkuMedia::getSkuId, skuId)
+                        .orderByAsc(SkuMedia::getSortOrder)).getRecords();
         return media.isEmpty() ? "" : media.get(0).getUrl();
     }
 

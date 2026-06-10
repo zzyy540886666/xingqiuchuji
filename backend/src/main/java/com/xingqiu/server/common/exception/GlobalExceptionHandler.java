@@ -1,12 +1,16 @@
 package com.xingqiu.server.common.exception;
 
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.xingqiu.server.common.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -37,6 +41,33 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest()
                 .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "参数校验失败", details));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, String> details = new HashMap<>();
+        ex.getConstraintViolations().forEach(violation ->
+                details.put(violation.getPropertyPath().toString(), violation.getMessage()));
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "参数校验失败", details));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableMessage(HttpMessageNotReadableException ex) {
+        Map<String, String> details = new HashMap<>();
+        if (ex.getCause() instanceof UnrecognizedPropertyException unrecognized) {
+            details.put(unrecognized.getPropertyName(), "不支持的请求字段");
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "请求包含未知字段", details));
+        }
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "请求体格式不合法"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.fail("FILE_TOO_LARGE", "上传文件大小不能超过 200MB"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -1,6 +1,7 @@
 package com.xingqiu.server.payment.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.xingqiu.server.auth.domain.User;
 import com.xingqiu.server.auth.mapper.UserMapper;
 import com.xingqiu.server.common.exception.BizException;
@@ -30,15 +31,18 @@ public class PaymentService {
     private final WeChatPayClient weChatPayClient;
     private final OrderService orderService;
     private final UserMapper userMapper;
+    private final PaymentSuccessOrchestrator paymentSuccessOrchestrator;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper,
                           WeChatPayClient weChatPayClient,
                           OrderService orderService,
-                          UserMapper userMapper) {
+                          UserMapper userMapper,
+                          PaymentSuccessOrchestrator paymentSuccessOrchestrator) {
         this.paymentOrderMapper = paymentOrderMapper;
         this.weChatPayClient = weChatPayClient;
         this.orderService = orderService;
         this.userMapper = userMapper;
+        this.paymentSuccessOrchestrator = paymentSuccessOrchestrator;
     }
 
     @Transactional
@@ -134,15 +138,24 @@ public class PaymentService {
             return;
         }
 
-        // 6. Update payment status
-        payment.setTransactionId(transactionId);
-        payment.setStatus(PaymentStatus.SUCCESS);
-        payment.setUpdatedAt(LocalDateTime.now());
-        paymentOrderMapper.updateById(payment);
+        // 6. Atomically claim PENDING -> SUCCESS so repeated callbacks do not run downstream effects twice.
+        LocalDateTime paidAt = LocalDateTime.now();
+        UpdateWrapper<PaymentOrder> update = new UpdateWrapper<>();
+        update.eq("out_trade_no", outTradeNo)
+                .eq("status", PaymentStatus.PENDING)
+                .set("transaction_id", transactionId)
+                .set("status", PaymentStatus.SUCCESS)
+                .set("updated_at", paidAt);
+        int updated = paymentOrderMapper.update(null, update);
+        if (updated == 0) {
+            log.info("Payment {} status was already claimed, idempotent return", outTradeNo);
+            return;
+        }
 
         // 6. Update order status to PAID (updateStatus handles transition + persistence)
         Order order = orderService.getOrderEntity(payment.getOrderId());
         orderService.updateStatus(order, OrderStatus.PAID, "PAYMENT_CALLBACK");
+        paymentSuccessOrchestrator.orchestrate(order);
 
         log.info("Payment callback processed: outTradeNo={}, txnId={}", outTradeNo, transactionId);
     }

@@ -1,13 +1,12 @@
 import { request } from "../utils/request";
+import { buildQuery } from "../utils/query";
 import type { InspectionTask } from "../types/inspection";
 
 export type { InspectionTask };
 
 export function getInspectionTasks(params: { status?: string; page?: number }): Promise<{ items: InspectionTask[]; total: number }> {
-  const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
-  if (params.page) query.set("page", String(params.page));
-  return request(`/inspection/tasks?${query.toString()}`);
+  const query = buildQuery(params);
+  return request(`/inspection/tasks${query ? `?${query}` : ""}`);
 }
 
 export function startInspection(taskId: string): Promise<void> {

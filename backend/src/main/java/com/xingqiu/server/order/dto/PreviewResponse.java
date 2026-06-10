@@ -12,6 +12,9 @@ public class PreviewResponse {
     /** Deposit amount in cents (integer). Never use float/double for money. */
     private Long depositAmount;
 
+    /** Discount amount in cents (integer). Never use float/double for money. */
+    private Long discountAmount;
+
     public List<PriceBreakdownItem> getPriceBreakdown() { return priceBreakdown; }
     public void setPriceBreakdown(List<PriceBreakdownItem> priceBreakdown) { this.priceBreakdown = priceBreakdown; }
 
@@ -20,6 +23,9 @@ public class PreviewResponse {
 
     public Long getDepositAmount() { return depositAmount; }
     public void setDepositAmount(Long depositAmount) { this.depositAmount = depositAmount; }
+
+    public Long getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(Long discountAmount) { this.discountAmount = discountAmount; }
 
     public static class PriceBreakdownItem {
         private String label;

@@ -1,6 +1,7 @@
 package com.xingqiu.server.job.scheduler;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.xingqiu.server.asset.service.TrusteeshipService;
 import com.xingqiu.server.distribution.service.CommissionService;
 import com.xingqiu.server.order.domain.Order;
 import com.xingqiu.server.order.domain.OrderStatus;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ScheduledTasks {
@@ -23,13 +25,16 @@ public class ScheduledTasks {
     private final StringRedisTemplate redis;
     private final OrderMapper orderMapper;
     private final CommissionService commissionService;
+    private final TrusteeshipService trusteeshipService;
 
     public ScheduledTasks(StringRedisTemplate redis,
                           OrderMapper orderMapper,
-                          CommissionService commissionService) {
+                          CommissionService commissionService,
+                          TrusteeshipService trusteeshipService) {
         this.redis = redis;
         this.orderMapper = orderMapper;
         this.commissionService = commissionService;
+        this.trusteeshipService = trusteeshipService;
     }
 
     /**
@@ -100,10 +105,26 @@ public class ScheduledTasks {
     }
 
     /**
-     * Inspect trusteeship — placeholder that runs every 5 minutes.
+     * Inspect trusteeship slots every 5 minutes.
+     * Completes expired ACTIVE slots, releases assets, and generates revenue ledgers.
+     * Uses Redis distributed lock to prevent concurrent execution.
      */
     @Scheduled(fixedDelay = 300_000)
     public void inspectTrusteeship() {
-        log.info("Trusteeship inspection run — placeholder");
+        String lockKey = "lock:trusteeship-inspect";
+
+        Boolean acquired = redis.opsForValue().setIfAbsent(lockKey, "1", Duration.ofMinutes(4));
+        if (Boolean.FALSE.equals(acquired)) {
+            log.debug("inspectTrusteeship: lock not acquired, skipping");
+            return;
+        }
+
+        try {
+            Map<String, Object> result = trusteeshipService.inspectTrusteeships();
+            log.info("inspectTrusteeship: completed={} slots, totalRevenue={}",
+                    result.get("completed"), result.get("totalRevenueMinor"));
+        } catch (Exception e) {
+            log.error("inspectTrusteeship failed: {}", e.getMessage(), e);
+        }
     }
 }

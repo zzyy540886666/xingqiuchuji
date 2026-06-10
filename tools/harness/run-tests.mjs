@@ -24,11 +24,12 @@ function read(file) {
 }
 
 test("pages.json registers all translated pages", () => {
-  const pages = JSON.parse(read("frontend/src/pages.json")).pages.map((item) => item.path);
-  assert(pages.length === 9, `expected 9 pages, got ${pages.length}`);
+  const config = JSON.parse(read("frontend/src/pages.json"));
+  const pages = config.pages.map((item) => item.path);
   for (const page of ["pages/home/index", "pages/category/index", "pages/community/index", "pages/profile/index", "pages/search/index", "pages/product-detail/index", "pages/activity-detail/index", "pages/order-confirm/index", "pages/membership-center/index"]) {
     assert(pages.includes(page), `missing ${page}`);
   }
+  assert(config.preloadRule?.["pages/profile/index"], "profile preload rule missing");
 });
 
 test("amount formatter rejects non-integer minor units", () => {
@@ -54,9 +55,12 @@ test("translated pages preserve core original labels", () => {
     read("frontend/src/pages/member/index.vue"),
   ].join("\n");
 
-  for (const label of ["星球·出机", "场景应用", "为你推荐", "分类", "社区", "微信一键登录", "会员权益", "星球卡"]) {
+  for (const label of ["星球", "出机", "场景应用", "为你推荐", "分类", "社区", "会员权益", "星球卡"]) {
     assert(bundle.includes(label), `missing label: ${label}`);
   }
+  const profile = read("frontend/src/pages/profile/index.vue");
+  assert(profile.includes("登录 / 注册"), "profile login entry missing");
+  assert(profile.includes("loginByWechat"), "wechat login action missing");
 });
 
 test("product detail and order pages keep rental purchase flow", () => {
@@ -68,6 +72,25 @@ test("product detail and order pages keep rental purchase flow", () => {
   for (const label of ["确认订单", "送货上门", "费用信息", "微信支付", "订单备注"]) {
     assert(order.includes(label), `order missing ${label}`);
   }
+});
+
+test("order center uses live paginated data instead of mock orders", () => {
+  const source = read("frontend/src/pages/order/list.vue");
+  for (const required of ["getOrderList", "getSkuDetail", "fetchOrders", "hasMore", "refresher-enabled"]) {
+    assert(source.includes(required), `order list missing ${required}`);
+  }
+  assert(!source.includes("mockOrders"), "order list must not render mock orders");
+  assert(source.includes("/pages/order/detail?id="), "order detail navigation missing");
+});
+
+test("home supports pull-down refresh with request race protection", () => {
+  const source = read("frontend/src/pages/home/index.vue");
+  const pages = JSON.parse(read("frontend/src/pages.json"));
+  const home = pages.pages.find((item) => item.path === "pages/home/index");
+  assert(home?.style?.enablePullDownRefresh === true, "home pull-down refresh not enabled");
+  assert(source.includes("onPullDownRefresh"), "home refresh lifecycle missing");
+  assert(source.includes("productRequestId"), "home product request race protection missing");
+  assert(source.includes("uni.stopPullDownRefresh()"), "home refresh completion missing");
 });
 
 const results = [];

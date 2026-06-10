@@ -1,6 +1,7 @@
 package com.xingqiu.server.community.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xingqiu.server.common.exception.BizException;
 import com.xingqiu.server.common.exception.ErrorCode;
 import com.xingqiu.server.community.domain.*;
@@ -100,14 +101,14 @@ public class CircleService {
             }
         }
         query.orderByDesc(Post::getCreatedAt);
-        query.last("LIMIT " + Math.max(1, Math.min(limit, 50)));
 
-        List<Post> posts = postMapper.selectList(query);
+        Page<Post> page = new Page<>(1, Math.max(1, Math.min(limit, 50)));
+        List<Post> posts = postMapper.selectPage(page, query).getRecords();
 
         // Convert using postService pattern - manual conversion for simplicity
         java.util.ArrayList<PostResponse> result = new java.util.ArrayList<>();
         for (Post post : posts) {
-            result.add(postService.getPostDetail(post.getId()));
+            result.add(postService.getPostDetail(post.getId(), null));
         }
         return result;
     }

@@ -12,6 +12,7 @@ import com.xingqiu.server.member.mapper.MembershipBenefitGrantMapper;
 import com.xingqiu.server.member.mapper.MembershipEventMapper;
 import com.xingqiu.server.member.mapper.MembershipMapper;
 import com.xingqiu.server.member.mapper.PlanetCardMapper;
+import com.xingqiu.server.appconfig.service.ConfigService;
 import com.xingqiu.server.wallet.service.WalletService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,32 +27,35 @@ public class MemberService {
 
     private static final Logger log = LoggerFactory.getLogger(MemberService.class);
 
-    /** 等级升级阈值（单位：分）:
+    /** 等级升级阈值（单位：分，硬编码兜底）:
      *  L0: < 10000  (即累计消费 < 100 元)
      *  L1: >= 10000 (累计消费 >= 100 元)
      *  L2: >= 50000 (累计消费 >= 500 元)
      *  L3: >= 200000 (累计消费 >= 2000 元)
      */
-    private static final long L1_THRESHOLD_CENTS = 10_000L;
-    private static final long L2_THRESHOLD_CENTS = 50_000L;
-    private static final long L3_THRESHOLD_CENTS = 200_000L;
+    private static final long DEFAULT_L1_THRESHOLD_CENTS = 10_000L;
+    private static final long DEFAULT_L2_THRESHOLD_CENTS = 50_000L;
+    private static final long DEFAULT_L3_THRESHOLD_CENTS = 200_000L;
 
     private final MembershipMapper membershipMapper;
     private final MembershipBenefitGrantMapper benefitGrantMapper;
     private final MembershipEventMapper eventMapper;
     private final PlanetCardMapper planetCardMapper;
     private final WalletService walletService;
+    private final ConfigService configService;
 
     public MemberService(MembershipMapper membershipMapper,
                          MembershipBenefitGrantMapper benefitGrantMapper,
                          MembershipEventMapper eventMapper,
                          PlanetCardMapper planetCardMapper,
-                         WalletService walletService) {
+                         WalletService walletService,
+                         ConfigService configService) {
         this.membershipMapper = membershipMapper;
         this.benefitGrantMapper = benefitGrantMapper;
         this.eventMapper = eventMapper;
         this.planetCardMapper = planetCardMapper;
         this.walletService = walletService;
+        this.configService = configService;
     }
 
     /**
@@ -172,6 +176,56 @@ public class MemberService {
         log.info("userId={} purchased planetCard skuId={}", userId, skuId);
     }
 
+    @Transactional
+    public void recordPaidOrder(Long userId, Long amountMinor, Long orderId) {
+        if (amountMinor == null || amountMinor < 0) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "Invalid paid amount");
+        }
+        if (hasPaidOrderEvent(userId, orderId)) {
+            log.info("membership paid order already recorded, userId={}, orderId={}", userId, orderId);
+            return;
+        }
+
+        Membership membership = findOrCreate(userId);
+        int oldLevel = membership.getLevel();
+        boolean wasNative = Boolean.TRUE.equals(membership.getIsNative());
+
+        membership.setLifetimeSpendMinor(membership.getLifetimeSpendMinor() + amountMinor);
+        membership.setIsNative(true);
+        int newLevel = deriveLevel(membership.getLifetimeSpendMinor());
+        if (newLevel > oldLevel) {
+            membership.setLevel(newLevel);
+        }
+        membership.setUpdatedAt(LocalDateTime.now());
+        membershipMapper.updateById(membership);
+
+        MembershipEvent paidEvent = new MembershipEvent();
+        paidEvent.setUserId(userId);
+        paidEvent.setEventType("PAID_ORDER");
+        paidEvent.setDescription(paidOrderDescription(orderId));
+        paidEvent.setCreatedAt(LocalDateTime.now());
+        eventMapper.insert(paidEvent);
+
+        if (!wasNative) {
+            MembershipEvent nativeEvent = new MembershipEvent();
+            nativeEvent.setUserId(userId);
+            nativeEvent.setEventType("NATIVE_TAGGED");
+            nativeEvent.setDescription("First paid order tagged native");
+            nativeEvent.setCreatedAt(LocalDateTime.now());
+            eventMapper.insert(nativeEvent);
+        }
+
+        if (newLevel > oldLevel) {
+            MembershipEvent levelEvent = new MembershipEvent();
+            levelEvent.setUserId(userId);
+            levelEvent.setEventType("LEVEL_UP");
+            levelEvent.setDescription("Membership level upgraded to L" + newLevel);
+            levelEvent.setCreatedAt(LocalDateTime.now());
+            eventMapper.insert(levelEvent);
+            log.info("userId={} level upgraded: L{} -> L{}", userId, oldLevel, newLevel);
+        }
+    }
+
     // ---- internal helpers ----
 
     private Membership findOrCreate(Long userId) {
@@ -185,17 +239,68 @@ public class MemberService {
         return membership;
     }
 
+    private boolean hasPaidOrderEvent(Long userId, Long orderId) {
+        LambdaQueryWrapper<MembershipEvent> query = new LambdaQueryWrapper<>();
+        query.eq(MembershipEvent::getUserId, userId)
+                .eq(MembershipEvent::getEventType, "PAID_ORDER")
+                .eq(MembershipEvent::getDescription, paidOrderDescription(orderId));
+        Long count = eventMapper.selectCount(query);
+        return count != null && count > 0;
+    }
+
+    private String paidOrderDescription(Long orderId) {
+        return "orderId=" + orderId;
+    }
+
     private int deriveLevel(long lifetimeSpendMinor) {
-        if (lifetimeSpendMinor >= L3_THRESHOLD_CENTS) {
+        long l1 = DEFAULT_L1_THRESHOLD_CENTS;
+        long l2 = DEFAULT_L2_THRESHOLD_CENTS;
+        long l3 = DEFAULT_L3_THRESHOLD_CENTS;
+
+        try {
+            List<java.util.Map<String, Object>> rules = configService.getMembershipRules();
+            if (rules != null && !rules.isEmpty()) {
+                l1 = readThreshold(rules, 1, DEFAULT_L1_THRESHOLD_CENTS);
+                l2 = readThreshold(rules, 2, DEFAULT_L2_THRESHOLD_CENTS);
+                l3 = readThreshold(rules, 3, DEFAULT_L3_THRESHOLD_CENTS);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load membership rules from config, using defaults: {}", e.getMessage());
+        }
+
+        if (lifetimeSpendMinor >= l3) {
             return 3;
         }
-        if (lifetimeSpendMinor >= L2_THRESHOLD_CENTS) {
+        if (lifetimeSpendMinor >= l2) {
             return 2;
         }
-        if (lifetimeSpendMinor >= L1_THRESHOLD_CENTS) {
+        if (lifetimeSpendMinor >= l1) {
             return 1;
         }
         return 0;
+    }
+
+    private long readThreshold(List<java.util.Map<String, Object>> rules, int level, long defaultMinor) {
+        for (java.util.Map<String, Object> rule : rules) {
+            Object levelObj = rule.get("level");
+            int ruleLevel = -1;
+            if (levelObj instanceof Integer) {
+                ruleLevel = (Integer) levelObj;
+            } else if (levelObj instanceof Number) {
+                ruleLevel = ((Number) levelObj).intValue();
+            }
+            if (ruleLevel == level) {
+                Object thresholdObj = rule.get("thresholdMinor");
+                if (thresholdObj instanceof Long) {
+                    return (Long) thresholdObj;
+                } else if (thresholdObj instanceof Integer) {
+                    return ((Integer) thresholdObj).longValue();
+                } else if (thresholdObj instanceof Number) {
+                    return ((Number) thresholdObj).longValue();
+                }
+            }
+        }
+        return defaultMinor;
     }
 
     private MembershipResponse toResponse(Membership m, List<MembershipBenefitGrant> benefits) {

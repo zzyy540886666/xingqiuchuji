@@ -7,6 +7,7 @@ import com.xingqiu.server.appconfig.domain.AppConfig;
 import com.xingqiu.server.appconfig.mapper.ConfigMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -20,12 +21,32 @@ public class ConfigService {
     private final ConfigMapper configMapper;
     private final ObjectMapper objectMapper;
 
-    /** 服务端配置版本，每次修改配置时递增 */
-    private static final int SERVER_CONFIG_VERSION = 1;
+    /**
+     * Fallback config version used when no config rows exist in the database.
+     * Overridable via xingqiu.config.version in application.yml to allow
+     * version bumps without recompilation.
+     */
+    @Value("${xingqiu.config.version:1}")
+    private int fallbackConfigVersion;
 
     public ConfigService(ConfigMapper configMapper, ObjectMapper objectMapper) {
         this.configMapper = configMapper;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Get the current active config version derived from the database.
+     * Uses the maximum version across all app_configs rows, which increments
+     * each time any config key is updated via AdminConfigService.
+     * Falls back to the configured {@code xingqiu.config.version} property
+     * (default 1) when the table is empty.
+     */
+    public int getCurrentConfigVersion() {
+        return configMapper.selectList(new LambdaQueryWrapper<>())
+                .stream()
+                .mapToInt(c -> c.getVersion() == null ? 0 : c.getVersion())
+                .max()
+                .orElse(fallbackConfigVersion);
     }
 
     /**
@@ -39,9 +60,10 @@ public class ConfigService {
     @Cacheable(value = "configs", key = "'appConfig_' + (#clientVersion != null ? #clientVersion : 'null')", unless = "#result == null")
     public Map<String, Object> getAppConfig(Integer clientVersion) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("version", SERVER_CONFIG_VERSION);
+        int serverVersion = getCurrentConfigVersion();
+        result.put("version", serverVersion);
 
-        if (clientVersion != null && clientVersion >= SERVER_CONFIG_VERSION) {
+        if (clientVersion != null && clientVersion >= serverVersion) {
             result.put("upToDate", true);
             return result;
         }
@@ -58,6 +80,7 @@ public class ConfigService {
         result.put("qaBlocks", loadConfigSection(configs, "qa_blocks", defaultQaBlocks()));
         result.put("trusteeshipPricingNote", loadConfigValue(configs, "trusteeship_pricing_note",
                 "托管收益按日结算，具体费率以合同为准"));
+        result.put("trusteeshipDailyRateMinor", loadConfigLong(configs, "trusteeship_daily_rate_minor", 300L));
         result.put("banners", loadConfigSection(configs, "banners", new ArrayList<>()));
         result.put("hotKeywords", loadConfigSection(configs, "hot_keywords", new ArrayList<>()));
         result.put("sceneTags", loadConfigSection(configs, "scene_tags", new LinkedHashMap<>()));
@@ -65,7 +88,22 @@ public class ConfigService {
         return result;
     }
 
-    // ---- internal helpers ----
+    /**
+     * 获取会员等级阈值规则。
+     * 优先从数据库加载，无覆盖时返回内置默认值。
+     * 供服务端线程调用，独立于客户端版本缓存。
+     */
+    @Cacheable(value = "configs", key = "'membership_rules'")
+    public List<Map<String, Object>> getMembershipRules() {
+        List<AppConfig> configs = configMapper.selectList(new LambdaQueryWrapper<>());
+        Object section = loadConfigSection(configs, "membership_rules", defaultMembershipRules());
+        if (section instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> list = (List<Map<String, Object>>) section;
+            return list;
+        }
+        return defaultMembershipRules();
+    }
 
     private Object loadConfigSection(List<AppConfig> configs, String key, Object defaultVal) {
         return configs.stream()
@@ -81,6 +119,31 @@ public class ConfigService {
                 .findFirst()
                 .map(AppConfig::getValueJson)
                 .orElse(defaultVal);
+    }
+
+    private Long loadConfigLong(List<AppConfig> configs, String key, Long defaultVal) {
+        String raw = configs.stream()
+                .filter(c -> key.equals(c.getConfigKey()))
+                .findFirst()
+                .map(AppConfig::getValueJson)
+                .orElse(null);
+        if (raw == null || raw.isBlank()) {
+            return defaultVal;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Failed to parse config long for key={}, using default: {}", key, e.getMessage());
+            return defaultVal;
+        }
+    }
+
+    /**
+     * 获取平台托管日租金（单位：分），供 TrusteeshipService 使用。
+     */
+    public Long getTrusteeshipDailyRateMinor() {
+        List<AppConfig> configs = configMapper.selectList(new LambdaQueryWrapper<>());
+        return loadConfigLong(configs, "trusteeship_daily_rate_minor", 300L);
     }
 
     private Object parseJsonSafe(String json, Object fallback) {

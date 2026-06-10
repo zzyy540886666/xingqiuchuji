@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" fill="none">
+  <!-- Arrow -->
+  <path d="M40 50 L70 20 L90 40 L90 10 L60 10 Z" fill="url(#arrowGrad)"/>
+  <!-- Coins -->
+  <ellipse cx="30" cy="60" rx="20" ry="8" fill="#60a5fa" stroke="#2563eb" stroke-width="2"/>
+  <path d="M10 60 V65 A20 8 0 0 0 50 65 V60" fill="#93c5fd" stroke="#2563eb" stroke-width="2"/>
+  <ellipse cx="60" cy="70" rx="15" ry="6" fill="#60a5fa" stroke="#2563eb" stroke-width="2"/>
+  <path d="M45 70 V75 A15 6 0 0 0 75 75 V70" fill="#93c5fd" stroke="#2563eb" stroke-width="2"/>
+  <defs>
+    <linearGradient id="arrowGrad" x1="40" y1="50" x2="90" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#bfdbfe"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+</svg>

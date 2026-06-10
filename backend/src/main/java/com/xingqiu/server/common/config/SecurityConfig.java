@@ -2,8 +2,10 @@ package com.xingqiu.server.common.config;
 
 import com.xingqiu.server.common.filter.JwtAuthFilter;
 import com.xingqiu.server.common.filter.RateLimitFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -39,8 +41,12 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, exception) ->
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                .accessDeniedHandler((request, response, exception) ->
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN)))
             .headers(headers -> headers
-                .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::disable)  // use custom below
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
@@ -53,11 +59,14 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/admin/auth/**").permitAll()
-                .requestMatchers("/api/v1/analytics/**").permitAll()
-                .requestMatchers("/api/v1/internal/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/analytics/events").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/internal/pay/wechat/notify").permitAll()
                 .requestMatchers("/api/v1/catalog/**").permitAll()
                 .requestMatchers("/api/v1/scenes/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/orders/preview").permitAll()
                 .requestMatchers("/api/v1/community/feed").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/community/posts/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/community/posts/*/comments").permitAll()
                 .requestMatchers("/api/v1/community/circles/**").permitAll()
                 .requestMatchers("/api/v1/config/**").permitAll()
                 // Swagger/API docs — disabled in production via springdoc config

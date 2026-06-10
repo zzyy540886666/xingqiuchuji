@@ -1,8 +1,11 @@
 package com.xingqiu.server.catalog.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+
+import java.util.List;
 
 @TableName("scenes")
 public class Scene {
@@ -18,6 +21,12 @@ public class Scene {
 
     private Integer sortOrder;
 
+    @TableField(exist = false)
+    private List<String> tags;
+
+    @TableField(exist = false)
+    private List<Long> skuIds;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -32,4 +41,10 @@ public class Scene {
 
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
+
+    public List<Long> getSkuIds() { return skuIds; }
+    public void setSkuIds(List<Long> skuIds) { this.skuIds = skuIds; }
 }

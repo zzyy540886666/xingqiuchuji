@@ -9,12 +9,13 @@
         <picker mode="date" @change="(e: any) => timeSlot.end = e.detail.value"><text class="picker-text">{{ timeSlot.end || '结束日期' }}</text></picker>
       </view>
       <view class="rate-row">
-        <text class="hint">日托管价格（元）</text>
-        <input v-model="dailyRateYuan" class="rate-input" type="digit" placeholder="请输入日托管价格" />
+        <text class="hint">平台统一定价（元/天）</text>
+        <view class="rate-display">{{ platformDailyYuan }}</view>
+        <text class="rate-note">托管价格由平台根据设备型号统一定价，提交后由平台审核确认。</text>
       </view>
     </view>
     <view class="card">
-      <text class="note">上架后平台将依据您提交的价格和可用时段进行审核。</text>
+      <text class="note">上架后平台将根据设备型号统一定价，您提交的可用时段将由平台审核确认。</text>
     </view>
     <view class="submit-btn" :class="{ disabled: !canSubmit || submitting }" @tap="handleSubmit">
       {{ submitting ? "提交中..." : "确认上架" }}
@@ -26,14 +27,20 @@
 import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { submitTrusteeship } from "../../services/asset";
+import { useConfigStore } from "../../stores/config";
 
 let assetId = "";
 const timeSlot = ref({ start: "", end: "" });
-const dailyRateYuan = ref("");
 const submitting = ref(false);
+const configStore = useConfigStore();
 
-const dailyRateMinor = computed(() => Math.round(Number(dailyRateYuan.value) * 100));
-const canSubmit = computed(() => timeSlot.value.start && timeSlot.value.end && timeSlot.value.start < timeSlot.value.end && dailyRateMinor.value > 0);
+const platformDailyMinor = computed(() => {
+  const raw = (configStore.config as Record<string, unknown>)?.trusteeshipDailyRateMinor;
+  const val = Number(raw);
+  return Number.isFinite(val) ? val : 300; // default 300分 = 3.00元/天
+});
+const platformDailyYuan = computed(() => (platformDailyMinor.value / 100).toFixed(2));
+const canSubmit = computed(() => timeSlot.value.start && timeSlot.value.end && timeSlot.value.start < timeSlot.value.end);
 
 onLoad((options) => { assetId = options?.id || ""; });
 
@@ -44,7 +51,6 @@ async function handleSubmit() {
     await submitTrusteeship(assetId, {
       startTime: `${timeSlot.value.start}T00:00:00`,
       endTime: `${timeSlot.value.end}T23:59:59`,
-      dailyRateMinor: dailyRateMinor.value,
     });
     uni.showToast({ title: "上架申请已提交", icon: "none" });
     setTimeout(() => uni.navigateBack(), 1500);
@@ -65,7 +71,8 @@ async function handleSubmit() {
 .add-slot { font-size: 26rpx; color: #0a4bfe; margin-top: 12rpx; }
 .note { font-size: 24rpx; color: #6b7280; }
 .rate-row { margin-top: 24rpx; }
-.rate-input { margin-top: 12rpx; padding: 16rpx 20rpx; font-size: 26rpx; border-radius: 12rpx; background: #f3f4f6; }
+.rate-display { margin: 12rpx 0 16rpx 0; padding: 16rpx 20rpx; font-size: 28rpx; font-weight: 700; color: #0a4bfe; border-radius: 12rpx; background: #ebf0ff; }
+.rate-note { display: block; font-size: 22rpx; color: #9ca3af; }
 .submit-btn { margin: 48rpx 28rpx; height: 88rpx; border-radius: 999rpx; background: #0a4bfe; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30rpx; font-weight: 700; }
 .submit-btn.disabled { opacity: 0.5; }
 </style>

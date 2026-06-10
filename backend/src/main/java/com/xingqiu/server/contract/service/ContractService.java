@@ -89,7 +89,12 @@ public class ContractService {
      * Get a presigned download URL for the order's contract.
      * Returns a map with "url" and "expiresAt" (epoch seconds).
      */
-    public Map<String, Object> getDownloadUrl(Long orderId) {
+    public Map<String, Object> getDownloadUrl(Long orderId, Long currentUserId) {
+        Order order = orderService.getOrderEntity(orderId);
+        if (!order.getUserId().equals(currentUserId)) {
+            throw new BizException(ErrorCode.FORBIDDEN, "No permission to download this contract");
+        }
+
         Contract contract = findByOrderId(orderId);
         if (contract == null) {
             throw new BizException(ErrorCode.CONTRACT_NOT_FOUND);

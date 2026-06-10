@@ -16,7 +16,7 @@ const routes: RouteRecordRaw[] = [
           { path: 'sku', name: 'SkuList', component: () => import('@/modules/catalog/SkuList.vue'), meta: { title: 'SKU 列表' } },
           { path: 'sku/:id', name: 'SkuDetail', component: () => import('@/modules/catalog/SkuDetail.vue'), meta: { title: '商品详情' } },
           { path: 'brands', name: 'BrandList', component: () => import('@/modules/catalog/BrandList.vue'), meta: { title: '品牌主数据' } },
-          { path: 'scenes', name: 'SceneList', component: () => import('@/modules/catalog/SceneList.vue'), meta: { title: '场景组合' } },
+          { path: 'scenes', name: 'SceneList', component: () => import('@/modules/catalog/SceneList.vue'), meta: { title: '首页场景应用' } },
           { path: 'filters', name: 'CatalogFilters', component: () => import('@/modules/catalog/FilterList.vue'), meta: { title: '商品筛选菜单' } },
         ],
       },

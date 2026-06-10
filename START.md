@@ -64,7 +64,7 @@ docker exec -i xq-mysql mysql -uroot -pxingqiu123 xingqiu_dev < backend/src/main
 $env:DB_USERNAME = "root"
 $env:DB_PASSWORD = "xingqiu123"
 $env:REDIS_HOST = "localhost"
-$env:JWT_SECRET = "xingqiu-jwt-secret-key-2026-0516"
+$env:JWT_SECRET = "dev-secret-change-me"
 ```
 
 > `DB_PASSWORD` 必须与 Docker 中 MySQL 容器的 `MYSQL_ROOT_PASSWORD` 一致（默认为 `xingqiu123`）。
@@ -99,6 +99,8 @@ npm install
 
 **8. 编译小程序**
 ```powershell
+cd "D:\Pro\星球出机小程序 - 副本\frontend"
+npm install
 npm run build:mp-weixin
 ```
 
@@ -268,3 +270,18 @@ docker compose -p xingqiu up -d mysql redis
 
 # 3. 等待 MySQL 就绪后重启后端
 .\start-dev.ps1
+
+$env:WX_APP_ID = "请填写你的小程序 AppID"
+$env:WX_APP_SECRET = "请填写你的小程序 AppSecret"
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = "xingqiu123"
+$env:REDIS_HOST = "localhost"
+$env:REDIS_PASSWORD = "redis123"
+$env:JWT_SECRET = "dev-secret-change-me"
+
+cd "D:\Pro\星球出机小程序 - 副本\backend"
+mvn spring-boot:run
+
+cd "D:\Pro\星球出机小程序 - 副本\frontend"
+npm install
+npm run build:mp-weixin

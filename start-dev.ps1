@@ -11,12 +11,26 @@ $BACKEND_DIR  = Join-Path $PROJECT_ROOT "backend"
 $ADMIN_DIR    = Join-Path $PROJECT_ROOT "admin-web"
 $BACKEND_PORT = 8080
 $ADMIN_PORT   = 3000
+$ENV_FILE     = Join-Path $PROJECT_ROOT ".env"
 
-$env:DB_USERNAME    = "root"
-$env:DB_PASSWORD    = "xingqiu123"
-$env:REDIS_HOST     = "localhost"
-$env:REDIS_PASSWORD = "redis123"
-$env:JWT_SECRET     = "xingqiu-jwt-secret-key-2026-0516"
+if (Test-Path $ENV_FILE) {
+    Get-Content $ENV_FILE | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith("#") -or -not $line.Contains("=")) { return }
+        $parts = $line.Split("=", 2)
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim().Trim('"').Trim("'")
+        if ($name) {
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
+if (-not $env:DB_USERNAME)    { $env:DB_USERNAME    = "root" }
+if (-not $env:DB_PASSWORD)    { $env:DB_PASSWORD    = "xingqiu123" }
+if (-not $env:REDIS_HOST)     { $env:REDIS_HOST     = "localhost" }
+if (-not $env:REDIS_PASSWORD) { $env:REDIS_PASSWORD = "redis123" }
+if (-not $env:JWT_SECRET)     { $env:JWT_SECRET     = "dev-secret-change-me" }
 
 # --- Helper Functions ---
 
@@ -44,22 +58,65 @@ function Write-Fail($text) {
     Write-Host $text
 }
 
-function Kill-PortProcess($port) {
-    $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-    if ($conns) {
+function Get-ListeningPortProcessIds($port) {
+    $foundPids = @()
+
+    try {
+        $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop
         foreach ($c in $conns) {
-            $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
-            if ($p -and $p.Name -ne "System") {
-                Write-Host "  Port $port occupied: PID=$($p.Id) ($($p.Name)), killing..." -ForegroundColor DarkYellow
-                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Milliseconds 500
+            if ($c.OwningProcess -and $c.OwningProcess -gt 0) {
+                $foundPids += [int]$c.OwningProcess
             }
         }
-        Write-Ok "Port $port freed"
     }
-    else {
+    catch { }
+
+    if (-not $foundPids) {
+        $pattern = ":$port$"
+        $rows = netstat -ano -p tcp 2>$null | Select-String "LISTENING"
+        foreach ($row in $rows) {
+            $cols = $row.ToString().Trim() -split "\s+"
+            if ($cols.Length -ge 5 -and $cols[1] -match $pattern) {
+                $parsedPid = 0
+                if ([int]::TryParse($cols[-1], [ref]$parsedPid) -and $parsedPid -gt 0) {
+                    $foundPids += $parsedPid
+                }
+            }
+        }
+    }
+
+    return @($foundPids | Sort-Object -Unique)
+}
+
+function Kill-PortProcess($port) {
+    $listeningPids = @(Get-ListeningPortProcessIds $port)
+    if (-not $listeningPids) {
         Write-Ok "Port $port available"
+        return $true
     }
+
+    foreach ($processId in $listeningPids) {
+        $p = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($p -and $p.Name -ne "System" -and $p.Name -ne "Idle") {
+            Write-Host "  Port $port occupied: PID=$($p.Id) ($($p.Name)), killing process tree..." -ForegroundColor DarkYellow
+            Stop-ProcessTree $p.Id
+        }
+        else {
+            Write-Fail "Port $port is occupied by PID=$processId and cannot be stopped automatically"
+        }
+    }
+
+    for ($i = 0; $i -lt 20; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (-not (Test-PortListening $port)) {
+            Write-Ok "Port $port freed"
+            return $true
+        }
+    }
+
+    $remainingPids = @(Get-ListeningPortProcessIds $port)
+    Write-Fail "Port $port is still occupied after cleanup: PID(s) $($remainingPids -join ', ')"
+    return $false
 }
 
 function Wait-ForHttp($url, $timeoutSec) {
@@ -81,14 +138,36 @@ function Wait-ForHttp($url, $timeoutSec) {
 function Wait-ForPort($port, $timeoutSec) {
     $elapsed = 0
     while ($elapsed -lt $timeoutSec) {
-        $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-        if ($c) { return $true }
+        if (Test-PortListening $port) { return $true }
         Write-Host "." -NoNewline -ForegroundColor DarkGray
         Start-Sleep -Seconds 2
         $elapsed += 2
     }
     Write-Host ""
     return $false
+}
+
+function Test-PortListening($port) {
+    return [bool]@(Get-ListeningPortProcessIds $port)
+}
+
+function Stop-ProcessTree($processId) {
+    if (-not $processId) { return }
+
+    if (Get-Command taskkill.exe -ErrorAction SilentlyContinue) {
+        & taskkill.exe /PID $processId /T /F 2>$null | Out-Null
+        Start-Sleep -Milliseconds 300
+        if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+            return
+        }
+    }
+
+    $children = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.ParentProcessId -eq $processId }
+    foreach ($child in $children) {
+        Stop-ProcessTree $child.ProcessId
+    }
+    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
 }
 
 # ============================================================
@@ -136,8 +215,18 @@ Write-Ok "MySQL and Redis ready"
 
 # --- 2. Kill ports ---
 Write-Step "2/5" "Checking ports..."
-Kill-PortProcess $BACKEND_PORT
-Kill-PortProcess $ADMIN_PORT
+if (-not (Kill-PortProcess $BACKEND_PORT)) {
+    Write-Fail "Cannot start backend until port $BACKEND_PORT is free"
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
+if (-not (Kill-PortProcess $ADMIN_PORT)) {
+    Write-Fail "Cannot start admin-web until port $ADMIN_PORT is free"
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
 
 # --- 3. Start backend ---
 Write-Step "3/5" "Starting backend (Spring Boot :$BACKEND_PORT)..."
@@ -215,12 +304,14 @@ Write-Host ""
 try {
     while ($true) {
         Start-Sleep -Seconds 5
-        if ($backendProc.HasExited) {
-            Write-Fail "Backend process exited (code: $($backendProc.ExitCode))"
+        if (-not (Test-PortListening $BACKEND_PORT)) {
+            $exitCode = if ($backendProc.HasExited) { $backendProc.ExitCode } else { "unknown" }
+            Write-Fail "Backend port $BACKEND_PORT is no longer listening (process code: $exitCode)"
             break
         }
-        if ($adminProc.HasExited) {
-            Write-Fail "Admin-web process exited (code: $($adminProc.ExitCode))"
+        if (-not (Test-PortListening $ADMIN_PORT)) {
+            $exitCode = if ($adminProc.HasExited) { $adminProc.ExitCode } else { "unknown" }
+            Write-Fail "Admin-web port $ADMIN_PORT is no longer listening (process code: $exitCode)"
             break
         }
     }
@@ -228,13 +319,7 @@ try {
 finally {
     Write-Host ""
     Write-Host "Stopping services..." -ForegroundColor Yellow
-    if (-not $backendProc.HasExited) {
-        Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue
-    }
-    if (-not $adminProc.HasExited) {
-        Stop-Process -Id $adminProc.Id -Force -ErrorAction SilentlyContinue
-    }
-    Get-Process -Name "java" -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-120) } | Stop-Process -Force -ErrorAction SilentlyContinue
-    Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-120) } | Stop-Process -Force -ErrorAction SilentlyContinue
+    Stop-ProcessTree $backendProc.Id
+    Stop-ProcessTree $adminProc.Id
     Write-Host "All stopped." -ForegroundColor Green
 }

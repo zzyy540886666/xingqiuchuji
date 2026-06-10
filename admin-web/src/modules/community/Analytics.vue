@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts-pie'
 import http from '@/api/http'
 
 const loading = ref(false)

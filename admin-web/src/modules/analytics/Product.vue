@@ -28,13 +28,44 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts-funnel'
 
 const dateRange = ref<[Date, Date] | ''>('')
 const exposureChartRef = ref<HTMLElement>()
 const funnelChartRef = ref<HTMLElement>()
 
-function fetchData() { /* 模拟数据与种子订单保持一致 */ }
+// ----
+// Mock data — pending real analytics API
+// ----
+// TODO(GAP-P02): Replace with real API calls when backend analytics endpoints are available.
+// Expected endpoints:
+//   GET /api/v1/admin/analytics/product/exposure?from=&to=   -> { skus: [{name, views}] }
+//   GET /api/v1/admin/analytics/product/funnel?from=&to=     -> { funnel: [{stage, count}] }
+// Data should come from event tracking (AnalyticsController.events / beacon pipeline)
+// aggregated by SKU + event type (exposure, detail, cart_add, order_create, payment_success).
+// ----
+
+const MOCK_EXPOSURE = [
+  { name: 'G1-u2', value: 1260 },
+  { name: 'Go2',  value: 980 },
+  { name: 'H1',   value: 720 },
+  { name: 'B2',   value: 560 },
+  { name: 'Z1',   value: 430 },
+]
+
+const MOCK_FUNNEL = [
+  { name: '曝光',         value: 1260 },
+  { name: '详情访问',     value: 468 },
+  { name: '加入购物车',   value: 96 },
+  { name: '下单',         value: 14 },
+  { name: '支付',         value: 2 },
+]
+
+function fetchData() {
+  // TODO(GAP-P02): call real analytics API when available
+  // http.get('/analytics/product/exposure', { params: { from: dateRange[0], to: dateRange[1] } })
+  // http.get('/analytics/product/funnel',    { params: { from: dateRange[0], to: dateRange[1] } })
+}
 
 onMounted(() => {
   if (exposureChartRef.value) {
@@ -42,8 +73,8 @@ onMounted(() => {
     chart.setOption({
       tooltip: {},
       xAxis: { type: 'value' },
-      yAxis: { type: 'category', data: ['G1-u2', 'Go2', 'H1', 'B2', 'Z1'] },
-      series: [{ type: 'bar', data: [1260, 980, 720, 560, 430] }],
+      yAxis: { type: 'category', data: MOCK_EXPOSURE.map(d => d.name) },
+      series: [{ type: 'bar', data: MOCK_EXPOSURE.map(d => d.value) }],
     })
     window.addEventListener('resize', () => chart.resize())
   }
@@ -53,13 +84,7 @@ onMounted(() => {
       tooltip: { trigger: 'item' },
       series: [{
         type: 'funnel',
-        data: [
-          { name: '曝光', value: 1260 },
-          { name: '详情访问', value: 468 },
-          { name: '加入购物车', value: 96 },
-          { name: '下单', value: 14 },
-          { name: '支付', value: 2 },
-        ],
+        data: MOCK_FUNNEL,
       }],
     })
     window.addEventListener('resize', () => chart.resize())

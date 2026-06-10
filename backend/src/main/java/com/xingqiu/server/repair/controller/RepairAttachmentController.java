@@ -3,6 +3,7 @@ package com.xingqiu.server.repair.controller;
 import com.xingqiu.server.common.exception.BizException;
 import com.xingqiu.server.common.exception.ErrorCode;
 import com.xingqiu.server.common.response.ApiResponse;
+import com.xingqiu.server.common.util.FileSignatureValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,10 @@ public class RepairAttachmentController {
 
     @PostMapping("/images")
     public ApiResponse<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) throws IOException {
-        if (file.isEmpty() || file.getSize() > MAX_IMAGE_BYTES || !ALLOWED_TYPES.contains(file.getContentType())) {
+        if (file.isEmpty()
+                || file.getSize() > MAX_IMAGE_BYTES
+                || !ALLOWED_TYPES.contains(file.getContentType())
+                || !FileSignatureValidator.isAllowedImage(file, ALLOWED_TYPES)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "仅支持不超过10MB的 JPG、PNG 或 WebP 图片");
         }
         String suffix = switch (file.getContentType()) {

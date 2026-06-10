@@ -1,6 +1,7 @@
 {
   "pages": [
-    { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/loading/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/home/index", "style": { "navigationStyle": "custom", "enablePullDownRefresh": true } },
     { "path": "pages/category/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/community/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/profile/index", "style": { "navigationStyle": "custom" } },
@@ -8,7 +9,8 @@
     { "path": "pages/product-detail/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/activity-detail/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/order-confirm/index", "style": { "navigationStyle": "custom" } },
-    { "path": "pages/membership-center/index", "style": { "navigationStyle": "custom" } }
+    { "path": "pages/membership-center/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/profile/edit", "style": { "navigationStyle": "custom" } }
   ],
   "subPackages": [
     {
@@ -30,7 +32,7 @@
       "root": "pages/wallet",
       "pages": [
         { "path": "index", "style": { "navigationBarTitleText": "我的钱包" } },
-        { "path": "withdraw", "style": { "navigationBarTitleText": "提现" } }
+        { "path": "withdraw", "style": { "navigationStyle": "custom" } }
       ]
     },
     {
@@ -38,7 +40,8 @@
       "pages": [
         { "path": "list", "style": { "navigationBarTitleText": "我的资产" } },
         { "path": "detail", "style": { "navigationBarTitleText": "设备详情" } },
-        { "path": "trusteeship", "style": { "navigationBarTitleText": "托管上架" } }
+        { "path": "trusteeship", "style": { "navigationBarTitleText": "托管上架" } },
+        { "path": "earnings", "style": { "navigationStyle": "custom" } }
       ]
     },
     {
@@ -47,7 +50,8 @@
         { "path": "home", "style": { "navigationBarTitleText": "分销中心" } },
         { "path": "invite", "style": { "navigationBarTitleText": "推广邀请" } },
         { "path": "team", "style": { "navigationBarTitleText": "我的团队" } },
-        { "path": "commission", "style": { "navigationBarTitleText": "佣金明细" } }
+        { "path": "commission", "style": { "navigationBarTitleText": "佣金明细" } },
+        { "path": "poster", "style": { "navigationBarTitleText": "邀请海报" } }
       ]
     },
     {
@@ -55,7 +59,7 @@
       "pages": [
         { "path": "create", "style": { "navigationBarTitleText": "报修提交" } },
         { "path": "progress", "style": { "navigationBarTitleText": "报修进度" } },
-        { "path": "mine", "style": { "navigationBarTitleText": "我的报修" } }
+        { "path": "mine", "style": { "navigationStyle": "custom" } }
       ]
     },
     {
@@ -84,11 +88,69 @@
         { "path": "conversations", "style": { "navigationBarTitleText": "消息" } },
         { "path": "chat", "style": { "navigationBarTitleText": "聊天" } }
       ]
+    },
+    {
+      "root": "pages/post",
+      "pages": [
+        { "path": "create", "style": { "navigationStyle": "custom" } }
+      ]
+    },
+    {
+      "root": "pages/notifications",
+      "pages": [
+        { "path": "index", "style": { "navigationBarTitleText": "消息中心" } }
+      ]
     }
   ],
+  "preloadRule": {
+    "pages/category/index": {
+      "network": "wifi",
+      "packages": ["pages/order"]
+    },
+    "pages/community/index": {
+      "network": "wifi",
+      "packages": ["pages/post", "pages/im"]
+    },
+    "pages/profile/index": {
+      "network": "wifi",
+      "packages": ["pages/order", "pages/wallet", "pages/asset", "pages/distribution", "pages/notifications"]
+    }
+  },
   "globalStyle": {
     "navigationStyle": "custom",
     "backgroundColor": "#F5F6F8",
     "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#9ca3af",
+    "selectedColor": "#0a4bfe",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home_v2.png",
+        "selectedIconPath": "static/tabbar/home_v2_active.png"
+      },
+      {
+        "pagePath": "pages/category/index",
+        "text": "分类",
+        "iconPath": "static/tabbar/category_v2.png",
+        "selectedIconPath": "static/tabbar/category_v2_active.png"
+      },
+      {
+        "pagePath": "pages/community/index",
+        "text": "社区",
+        "iconPath": "static/tabbar/community_v2.png",
+        "selectedIconPath": "static/tabbar/community_v2_active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/profile_v2.png",
+        "selectedIconPath": "static/tabbar/profile_v2_active.png"
+      }
+    ]
   }
 }

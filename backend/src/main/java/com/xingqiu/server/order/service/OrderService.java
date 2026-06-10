@@ -51,16 +51,20 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(Long userId, CreateOrderRequest request) {
+        String orderType = previewService.normalizeOrderType(request.getOrderType());
+
         // 1. Validate SKU exists and can sell
         Sku sku = skuService.getSkuById(request.getSkuId());
 
         // 2. Calculate price via preview service
         PreviewRequest previewReq = new PreviewRequest();
         previewReq.setSkuId(request.getSkuId());
-        previewReq.setOrderType(request.getOrderType());
+        previewReq.setOrderType(orderType);
         previewReq.setRentStartDate(request.getRentStartDate());
         previewReq.setRentEndDate(request.getRentEndDate());
         previewReq.setAddress(request.getAddress());
+        previewReq.setCouponDiscountMinor(request.getCouponDiscountMinor());
+        previewReq.setLightYearDiscountMinor(request.getLightYearDiscountMinor());
         PreviewResponse preview = previewService.preview(previewReq);
 
         // 3. Generate order number
@@ -71,15 +75,15 @@ public class OrderService {
         order.setOrderNo(orderNo);
         order.setUserId(userId);
         order.setSkuId(sku.getId());
-        order.setOrderType(request.getOrderType());
+        order.setOrderType(orderType);
         order.setStatus(OrderStatus.PENDING_PAY);
-        order.setAmountMinor(preview.getPayableAmount());
+        order.setAmountMinor(preview.getPayableAmount() + preview.getDiscountAmount());
         order.setDepositMinor(preview.getDepositAmount());
         order.setShippingMinor(0L);
-        order.setDiscountMinor(0L);
+        order.setDiscountMinor(preview.getDiscountAmount());
         order.setPayableMinor(preview.getPayableAmount());
-        order.setRentStartDate(request.getRentStartDate());
-        order.setRentEndDate(request.getRentEndDate());
+        order.setRentStartDate("RENT".equals(orderType) ? request.getRentStartDate() : null);
+        order.setRentEndDate("RENT".equals(orderType) ? request.getRentEndDate() : null);
         order.setAddressJson(request.getAddress());
         order.setIdempotencyKey(request.getIdempotencyKey());
         order.setCreatedAt(LocalDateTime.now());
@@ -178,9 +182,11 @@ public class OrderService {
 
     @Transactional
     public void updateStatus(Order order, OrderStatus target, String operator) {
+        OrderStatus before = order.getStatus();
         orderDomainService.transition(order, target, operator);
         order.setUpdatedAt(LocalDateTime.now());
         orderMapper.updateById(order);
+        logEvent(order.getId(), before.name(), target.name(), operator, "Order status changed");
     }
 
     private void logEvent(Long orderId, String fromStatus, String toStatus, String operator, String reason) {
@@ -201,7 +207,7 @@ public class OrderService {
 
     private OrderResponse toResponse(Order order) {
         OrderResponse resp = new OrderResponse();
-        resp.setId(order.getId());
+        resp.setId(String.valueOf(order.getId()));
         resp.setOrderNo(order.getOrderNo());
         resp.setUserId(order.getUserId());
         resp.setSkuId(order.getSkuId());

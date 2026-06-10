@@ -4,6 +4,7 @@
       <text v-for="tab in tabs" :key="tab.value" class="tab" :class="{ active: currentTab === tab.value }" @tap="currentTab = tab.value">{{ tab.label }}</text>
     </view>
     <Skeleton v-if="loading" :rows="4" />
+    <ErrorRetry v-else-if="error" @retry="fetchList" />
     <EmptyState v-else-if="list.length === 0" text="暂无报修记录" action-text="去报修" @action="goCreate" />
     <view v-else class="order-list">
       <view v-for="item in list" :key="item.id" class="order-card" @tap="goProgress(item.id)">
@@ -21,8 +22,9 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import Skeleton from "../../components/Skeleton.vue";
+import Skeleton from "../../components/PageSkeleton.vue";
 import EmptyState from "../../components/EmptyState.vue";
+import ErrorRetry from "../../components/ErrorRetry.vue";
 import { getWorkOrders, type WorkOrder } from "../../services/repair";
 
 const tabs = [
@@ -33,13 +35,23 @@ const tabs = [
 const currentTab = ref("");
 const list = ref<WorkOrder[]>([]);
 const loading = ref(false);
+const error = ref(false);
 
 const statusMap: Record<string, string> = { NEW: "待处理", ASSIGNED: "已派单", IN_PROGRESS: "处理中", PENDING_ACCEPT: "待接单", DONE: "已完成", REJECTED: "已驳回", CLOSED: "已关闭" };
 function statusLabel(s: string) { return statusMap[s] || s; }
 
 async function fetchList() {
   loading.value = true;
-  try { const res = await getWorkOrders({ status: currentTab.value || undefined }); list.value = res.items; } catch {} finally { loading.value = false; }
+  error.value = false;
+  try {
+    const res = await getWorkOrders({ status: currentTab.value || undefined });
+    list.value = res.items;
+  } catch {
+    list.value = [];
+    error.value = true;
+  } finally {
+    loading.value = false;
+  }
 }
 
 watch(currentTab, () => fetchList());

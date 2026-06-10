@@ -54,8 +54,14 @@ export const useSessionStore = defineStore("session", () => {
         method: "POST",
         data: { inviteCode: inviteCode.value },
       });
+      // Successfully bound — clear the invite code so we don't retry on next login
+      inviteCode.value = "";
+      uni.removeStorageSync("xq_invite_code");
     } catch {
-      // non-critical
+      // Binding failed (e.g. already bound, invalid code, self-bind).
+      // Clear the code anyway to avoid repeated 400s on every login.
+      inviteCode.value = "";
+      uni.removeStorageSync("xq_invite_code");
     }
   }
 

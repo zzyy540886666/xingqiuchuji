@@ -1,64 +1,125 @@
 <template>
-  <view class="page-white search-page">
-    <view class="header search-header">
-      <StatusBar />
-      <view class="search-top">
-        <view class="back-button" @tap="back"><image class="back-icon" src="/static/icons/back.svg" mode="aspectFit" /></view>
-        <view class="search-input-wrap">
-          <image class="search-icon" src="/static/icons/search.svg" mode="aspectFit" />
-          <input v-model="searchValue" class="search-input" placeholder="搜索商品/型号" />
-          <image v-if="searchValue" class="clear" src="/static/icons/close.svg" mode="aspectFit" @tap="searchValue = ''" />
+  <view class="page-container">
+    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px', paddingRight: menuButtonRight + 'px' }">
+      <view class="nav-content" :style="{ height: navBarHeight + 'px' }">
+        <view class="back-btn" @tap="back">
+          <image class="icon-back" src="/static/icons/back.svg" mode="aspectFit" />
         </view>
-        <text class="search-submit" @tap="submitSearch">搜索</text>
+        <view class="search-box">
+          <view class="search-input-wrap">
+            <image class="search-icon" src="/static/icons/search.svg" mode="aspectFit" />
+            <input v-model="searchValue" class="search-input" placeholder="搜索名称、场景、品牌、适配型号" placeholder-class="input-placeholder" />
+          </view>
+          <view class="search-btn" @tap="submitSearch">搜索</view>
+        </view>
       </view>
     </view>
 
-    <view class="search-content">
-      <view v-if="history.length" class="search-block">
-        <view class="block-title-row">
-          <text class="block-title">历史搜索</text>
-          <image class="trash" src="/static/icons/trash.svg" mode="aspectFit" @tap="clearHistory" />
+    <view class="content-padding">
+      <view class="section" v-if="history.length > 0">
+        <view class="section-header">
+          <text class="section-title">搜索历史</text>
+          <view class="clear-btn" @tap="clearHistory">
+            <image class="icon-small" src="/static/icons/trash.svg" mode="aspectFit" />
+            <text>清空</text>
+          </view>
         </view>
-        <view class="history-tags">
-          <text v-for="item in history" :key="item" @tap="searchValue = item">{{ item }}</text>
+        <view class="tags-container">
+          <view class="tag-item" v-for="item in history" :key="item" @tap="searchValue = item; submitSearch()">{{ item }}</view>
         </view>
       </view>
 
-      <view class="search-block">
-        <view class="block-title-row">
-          <text class="block-title">搜索发现</text>
-          <image class="eye" :src="showDiscovery ? '/static/icons/eye.svg' : '/static/icons/eye-off.svg'" mode="aspectFit" @tap="showDiscovery = !showDiscovery" />
+      <view class="section" v-if="hotKeywords.length > 0">
+        <view class="section-header">
+          <text class="section-title">热门搜索</text>
         </view>
-        <view v-if="showDiscovery" class="discover-grid">
-          <view v-for="item in discoveryItems" :key="item.id" class="discover-item" @tap="searchValue = item.text">
-            <text class="rank" :class="`rank-${item.id}`">{{ item.id }}</text>
-            <text class="discover-text">{{ item.text }}</text>
-            <text v-if="item.isHot" class="hot">HOT</text>
+        <view class="tags-container">
+          <view class="tag-item hot-tag" v-for="item in hotKeywords" :key="item" @tap="searchValue = item; submitSearch()">{{ item }}</view>
+        </view>
+      </view>
+
+      <view class="section" v-if="recommendedScenes.length > 0">
+        <view class="section-header">
+          <text class="section-title">推荐场景</text>
+        </view>
+        <scroll-view scroll-x class="scene-scroll" :show-scrollbar="false">
+          <view class="scene-list">
+            <view class="scene-card" v-for="scene in recommendedScenes" :key="scene.id" @tap="goCategory(scene.name)">
+              <image class="scene-img" :src="scene.imageUrl" mode="aspectFill" />
+              <text class="scene-name">{{ scene.name }}</text>
+              <text class="scene-desc">{{ scene.description }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <view class="section" v-if="relatedProducts.length > 0">
+        <view class="section-header">
+          <text class="section-title">相关商品</text>
+        </view>
+        <view class="product-list">
+          <view class="product-card" v-for="item in relatedProducts" :key="item.id" @tap="goProduct(item.id)">
+            <image class="product-img" :src="item.image" mode="aspectFill" />
+            <view class="product-info">
+              <text class="product-title">{{ item.title }}</text>
+              <text class="product-brand" v-if="item.brand">{{ item.brand }}</text>
+              <view class="product-tags" v-if="item.tags && item.tags.length">
+                <text class="tag" v-for="tag in item.tags.slice(0, 3)" :key="tag">{{ tag }}</text>
+              </view>
+              <text class="product-spec" v-if="item.adaptedScenesText">适配场景: {{ item.adaptedScenesText }}</text>
+              <text class="product-spec" v-if="item.model">适配型号: {{ item.model }}</text>
+              <view class="product-price-row">
+                <view>
+                  <text class="price-symbol">¥</text>
+                  <text class="price-amount">{{ item.priceAmount }}</text>
+                  <text class="price-unit" v-if="item.type === 'RENT'">/天起</text>
+                  <text class="price-unit" v-else-if="item.type === 'BUY'">起</text>
+                </view>
+                <image class="icon-arrow-blue" src="/static/icons/chevron-right-blue.svg" mode="aspectFit" />
+              </view>
+            </view>
           </view>
         </view>
-        <view v-else class="hidden-tip">当前搜索发现已隐藏</view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import StatusBar from "../../components/StatusBar.vue";
+import { computed, onMounted, ref } from "vue";
+import { useCatalogStore } from "../../stores/catalog";
 import { useConfigStore } from "../../stores/config";
+import { getScenes, getSkuList, type SceneItem, type SkuItem } from "../../services/catalog";
+import { navigateToPage } from "../../utils/navigation";
 
 const configStore = useConfigStore();
+const catalogStore = useCatalogStore();
+const statusBarHeight = ref(20);
+const navBarHeight = ref(44);
+const menuButtonRight = ref(0);
 const searchValue = ref("");
-const history = ref<string[]>(JSON.parse(uni.getStorageSync("xq_search_history") || "[]"));
-const showDiscovery = ref(true);
+const history = computed(() => catalogStore.searchHistory);
+const hotKeywords = computed(() => configStore.config.hotKeywords || []);
+const recommendedScenes = ref<SceneItem[]>([]);
+const relatedProducts = ref<SkuItem[]>([]);
 
-const discoveryItems = computed(() => {
-  const keywords = configStore.config.hotKeywords || [];
-  return keywords.map((text, idx) => ({
-    id: idx + 1,
-    text,
-    isHot: idx === 0,
-  }));
+onMounted(() => {
+  const info = uni.getWindowInfo();
+  statusBarHeight.value = info.statusBarHeight || 20;
+  try {
+    const menuButton = uni.getMenuButtonBoundingClientRect();
+    navBarHeight.value = menuButton.height + (menuButton.top - statusBarHeight.value) * 2;
+    menuButtonRight.value = info.windowWidth - menuButton.left;
+  } catch {}
+});
+
+onMounted(async () => {
+  const [sceneResult, productResult] = await Promise.allSettled([
+    getScenes(),
+    getSkuList({ recommended: true, pageSize: 10 }),
+  ]);
+  recommendedScenes.value = sceneResult.status === "fulfilled" ? sceneResult.value : [];
+  relatedProducts.value = productResult.status === "fulfilled" ? productResult.value.items : [];
 });
 
 function back() {
@@ -68,165 +129,62 @@ function back() {
 function submitSearch() {
   const val = searchValue.value.trim();
   if (!val) return;
-  if (!history.value.includes(val)) {
-    history.value.unshift(val);
-    if (history.value.length > 10) history.value.pop();
-    uni.setStorageSync("xq_search_history", JSON.stringify(history.value));
-  }
-  uni.navigateTo({ url: `/pages/category/index?keyword=${encodeURIComponent(val)}` });
+  catalogStore.addSearchHistory(val);
+  goCategory(val);
 }
 
 function clearHistory() {
-  history.value = [];
-  uni.removeStorageSync("xq_search_history");
+  catalogStore.clearSearchHistory();
   uni.showToast({ title: "搜索历史已清空", icon: "none" });
+}
+
+function goCategory(keyword: string) {
+  navigateToPage(`/pages/category/index?keyword=${encodeURIComponent(keyword)}`);
+}
+
+function goProduct(id: number) {
+  navigateToPage(`/pages/product-detail/index?id=${id}`);
 }
 </script>
 
 <style scoped lang="scss">
-.search-header {
-  border-bottom: 1rpx solid #f3f4f6;
-}
-
-.search-top {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  padding: 18rpx 28rpx;
-}
-
-.search-input-wrap {
-  height: 72rpx;
-  flex: 1;
-  min-width: 0;
-  border-radius: 999rpx;
-  background: #f5f6f8;
-  padding: 0 28rpx;
-  display: flex;
-  align-items: center;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 0;
-  height: 72rpx;
-  font-size: 28rpx;
-  color: #111827;
-}
-
-.search-submit {
-  color: #111827;
-  font-size: 30rpx;
-  flex-shrink: 0;
-}
-
-.clear {
-  width: 30rpx;
-  height: 30rpx;
-  border-radius: 50%;
-  background: #c9cdd4;
-  padding: 4rpx;
-}
-
-.search-content {
-  padding: 36rpx 28rpx;
-}
-
-.search-block {
-  margin-bottom: 56rpx;
-}
-
-.block-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28rpx;
-}
-
-.block-title {
-  font-size: 30rpx;
-  font-weight: 900;
-}
-
-.trash {
-  width: 32rpx;
-  height: 32rpx;
-  display: block;
-}
-
-.eye {
-  width: 38rpx;
-  height: 38rpx;
-  display: block;
-}
-
-.history-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-
-.history-tags text {
-  height: 70rpx;
-  padding: 0 30rpx;
-  border-radius: 999rpx;
-  background: #f5f6f8;
-  color: #374151;
-  font-size: 26rpx;
-  display: flex;
-  align-items: center;
-}
-
-.discover-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 42rpx;
-  row-gap: 30rpx;
-}
-
-.discover-item {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  min-width: 0;
-}
-
-.rank {
-  width: 34rpx;
-  height: 34rpx;
-  border-radius: 6rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
-  font-weight: 900;
-  color: #9ca3af;
-}
-
-.rank-1 { color: #fff; background: #f53f3f; }
-.rank-2 { color: #fff; background: #ff7d00; }
-.rank-3 { color: #fff; background: #f7ba1e; }
-
-.discover-text {
-  font-size: 28rpx;
-  color: #374151;
-}
-
-.hot {
-  color: #f53f3f;
-  background: #ffece8;
-  font-size: 18rpx;
-  font-weight: 900;
-  padding: 2rpx 8rpx;
-  border-radius: 6rpx;
-}
-
-.hidden-tip {
-  background: #f8f9fa;
-  border-radius: 24rpx;
-  color: #9ca3af;
-  font-size: 26rpx;
-  text-align: center;
-  padding: 42rpx 0;
-}
+.page-container { min-height: 100vh; background: #fff; }
+.nav-bar { position: sticky; top: 0; z-index: 100; padding-left: 16px; background: #fff; }
+.nav-content { display: flex; align-items: center; gap: 12px; }
+.back-btn { padding: 8px 0; }
+.icon-back { width: 20px; height: 20px; display: block; }
+.search-box { flex: 1; display: flex; align-items: center; height: 32px; border: 1px solid #2563eb; border-radius: 16px; padding: 2px 2px 2px 12px; }
+.search-input-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
+.search-icon { width: 16px; height: 16px; }
+.search-input { flex: 1; font-size: 14px; color: #111827; }
+.input-placeholder { color: #9ca3af; font-size: 14px; }
+.search-btn { height: 28px; padding: 0 14px; border-radius: 14px; background: #2563eb; color: #fff; font-size: 13px; display: flex; align-items: center; }
+.content-padding { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+.section { margin-bottom: 24px; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.section-title { font-size: 16px; font-weight: 600; color: #111827; }
+.clear-btn { display: flex; align-items: center; gap: 4px; color: #9ca3af; font-size: 12px; }
+.icon-small { width: 14px; height: 14px; }
+.tags-container { display: flex; flex-wrap: wrap; gap: 10px; }
+.tag-item { padding: 6px 14px; border-radius: 16px; font-size: 13px; background: #f3f4f6; color: #4b5563; }
+.hot-tag { background: #eff6ff; color: #2563eb; }
+.scene-scroll { width: 100%; white-space: nowrap; }
+.scene-list { display: inline-flex; gap: 12px; }
+.scene-card { width: 140px; display: inline-flex; flex-direction: column; gap: 4px; }
+.scene-img { width: 140px; height: 90px; border-radius: 8px; background: #f3f4f6; }
+.scene-name { font-size: 14px; font-weight: 600; color: #111827; }
+.scene-desc { font-size: 12px; color: #6b7280; }
+.product-list { display: flex; flex-direction: column; gap: 20px; }
+.product-card { display: flex; gap: 12px; }
+.product-img { width: 110px; height: 110px; border-radius: 8px; background: #f8f9fa; flex-shrink: 0; }
+.product-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.product-title { font-size: 15px; font-weight: 600; color: #111827; line-height: 1.4; }
+.product-brand, .product-spec { font-size: 12px; color: #6b7280; }
+.product-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 11px; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 4px; }
+.product-price-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
+.price-symbol { font-size: 12px; color: #dc2626; font-weight: 600; }
+.price-amount { font-size: 20px; color: #dc2626; font-weight: 700; }
+.price-unit { font-size: 12px; color: #9ca3af; margin-left: 2px; }
+.icon-arrow-blue { width: 18px; height: 18px; }
 </style>

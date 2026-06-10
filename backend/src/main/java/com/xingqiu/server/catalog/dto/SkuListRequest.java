@@ -18,6 +18,8 @@ public class SkuListRequest {
 
     private Integer pageSize;
 
+    private Boolean recommended;
+
     public SkuListRequest() {
         this.page = 1;
         this.pageSize = 20;
@@ -46,4 +48,7 @@ public class SkuListRequest {
 
     public Integer getPageSize() { return pageSize; }
     public void setPageSize(Integer pageSize) { this.pageSize = pageSize; }
+
+    public Boolean getRecommended() { return recommended; }
+    public void setRecommended(Boolean recommended) { this.recommended = recommended; }
 }

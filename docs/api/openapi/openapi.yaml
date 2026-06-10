@@ -138,13 +138,78 @@ paths:
       responses:
         '200':
           description: 资产收益面板
+  /assets/earnings:
+    get:
+      tags: [UserCenter]
+      summary: 当前用户托管收益汇总
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            enum: [7, 30]
+            default: 7
+          description: 收益趋势范围，非 30 时按 7 天返回
+      responses:
+        '200':
+          description: 用户托管收益汇总、趋势、分类和明细，金额单位为分
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetEarningsEnvelope'
   /distribution/me:
     get:
       tags: [Distribution]
       summary: 当前用户分销信息
       responses:
         '200':
-          description: 邀请码和团队统计
+          description: 分销中心首页信息
+  /distribution/team:
+    get:
+      tags: [Distribution]
+      summary: 当前用户团队统计与成员列表
+      responses:
+        '200':
+          description: 一级二级团队与成员明细
+  /distribution/commissions:
+    get:
+      tags: [Distribution]
+      summary: 当前用户佣金明细
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ALL, PENDING_PROTECT, SETTLEABLE, SETTLED, DISPUTE]
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: 佣金分页列表
+  /distribution/bind:
+    post:
+      tags: [Distribution]
+      summary: 绑定邀请码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inviteCode]
+              properties:
+                inviteCode:
+                  type: string
+                  maxLength: 32
+      responses:
+        '200':
+          description: 绑定成功，已绑定时幂等成功
+        '400':
+          description: 邀请码为空、格式无效、邀请人不存在或不可绑定自己
   /notifications:
     get:
       tags: [UserCenter]
@@ -194,6 +259,7 @@ paths:
         - { in: query, name: minPrice, schema: { type: integer, format: int64 } }
         - { in: query, name: maxPrice, schema: { type: integer, format: int64 } }
         - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: recommended, schema: { type: boolean }, description: 仅返回后台标记为首页推荐的商品 }
       responses:
         '200':
           description: 商品分页列表
@@ -214,6 +280,106 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SkuDetailEnvelope'
+  /catalog/scenes:
+    get:
+      tags: [Catalog]
+      summary: 首页场景应用列表，按后台排序返回图片与标签
+      security: []
+      responses:
+        '200':
+          description: 场景应用列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SceneItem' }
+  /catalog/scenes/{sceneId}/bundles:
+    get:
+      tags: [Catalog]
+      summary: 场景关联的在线商品
+      security: []
+      parameters:
+        - { in: path, name: sceneId, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 场景及关联商品 }
+  /orders/preview:
+    post:
+      tags: [Order]
+      summary: 计算公开商品的订单价格预览
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skuId, orderType]
+              properties:
+                skuId: { type: integer, format: int64 }
+                orderType: { type: string, enum: [RENT, BUY, SOFTWARE] }
+                rentStartDate: { type: string, format: date }
+                rentEndDate: { type: string, format: date }
+                address: { type: string }
+                couponDiscountMinor: { type: integer, format: int64, minimum: 0, description: 优惠券抵扣金额，单位为分，后端按应付金额封顶 }
+                lightYearDiscountMinor: { type: integer, format: int64, minimum: 0, description: 光年币抵扣金额，单位为分，后端按应付金额封顶 }
+      responses:
+        '200':
+          description: 金额单位为分的计价结果，包含抵扣明细
+  /orders:
+    post:
+      tags: [Order]
+      summary: 创建当前用户订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skuId, orderType]
+              properties:
+                skuId: { type: integer, format: int64 }
+                orderType: { type: string, enum: [RENT, BUY, SOFTWARE] }
+                rentStartDate: { type: string, format: date }
+                rentEndDate: { type: string, format: date }
+                address: { type: string }
+                couponDiscountMinor: { type: integer, format: int64, minimum: 0, description: 优惠券抵扣金额，单位为分，后端按应付金额封顶 }
+                lightYearDiscountMinor: { type: integer, format: int64, minimum: 0, description: 光年币抵扣金额，单位为分，后端按应付金额封顶 }
+                idempotencyKey: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          description: 创建成功，返回订单；金额字段单位均为分
+        '400':
+          description: 参数无效或价格未配置
+  /orders/{orderId}/payments/wechat-jsapi:
+    post:
+      tags: [Order]
+      summary: 获取当前用户订单的微信小程序支付参数
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: 返回 timeStamp、nonceStr、package、signType、paySign
+        '403':
+          description: 订单不属于当前用户
+        '409':
+          description: 订单不可支付
+  /orders/{orderId}/contract/download-url:
+    get:
+      tags: [Order]
+      summary: 获取当前用户订单合同下载地址
+      parameters:
+        - { in: path, name: orderId, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: 返回合同预签名下载地址和过期时间
+        '403':
+          description: 订单不属于当前用户
+        '404':
+          description: 合同不存在
   /config/activities:
     get:
       tags: [Catalog]
@@ -250,6 +416,25 @@ paths:
       responses:
         '200':
           description: 上传成功，返回可直接访问的图片地址
+  /admin/upload/video:
+    post:
+      tags: [后台管理]
+      summary: 后台上传活动视频
+      description: 支持 MP4、MOV、M4V、WebM 视频文件，单文件不超过 200MB；小程序播放优先使用 MP4/H.264。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功，返回可直接访问的视频地址
   /admin/catalog-filters:
     get:
       tags: [后台管理]
@@ -370,6 +555,45 @@ paths:
         - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
       responses:
         '200': { description: 删除成功 }
+  /admin/scenes:
+    get:
+      tags: [后台管理]
+      summary: 首页场景应用管理列表
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { description: 场景应用分页列表 }
+    post:
+      tags: [后台管理]
+      summary: 新增首页场景应用
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminSceneUpsert' }
+      responses:
+        '200': { description: 创建成功 }
+  /admin/scenes/{id}:
+    put:
+      tags: [后台管理]
+      summary: 更新首页场景应用图片、标签和排序
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminSceneUpsert' }
+      responses:
+        '200': { description: 更新成功 }
+    delete:
+      tags: [后台管理]
+      summary: 删除首页场景应用
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 删除成功 }
   /admin/skus:
     get:
       tags: [后台管理]
@@ -389,7 +613,7 @@ paths:
           schema: { type: string, enum: [RENT, BUY, SOFTWARE] }
         - in: query
           name: status
-          schema: { type: string, enum: [ON_SHELF, OFF_SHELF, DRAFT] }
+          schema: { type: string, enum: [ON_SHELF, OFF_SHELF] }
       responses:
         '200':
           description: 商品分页
@@ -446,6 +670,18 @@ paths:
       responses:
         '200':
           description: 切换成功
+  /admin/skus/{id}/toggle-recommend:
+    post:
+      tags: [后台管理]
+      summary: 切换商品在首页推荐区的展示状态
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 返回当前推荐状态
   /admin/community/posts:
     get:
       tags: [后台管理]
@@ -599,6 +835,50 @@ components:
         avatarUrl: { type: string }
         membershipLevel: { type: integer }
         isNativeResident: { type: boolean }
+    AssetEarningsEnvelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          $ref: '#/components/schemas/AssetEarnings'
+    AssetEarnings:
+      type: object
+      properties:
+        totalRevenueMinor: { type: integer, format: int64, description: 累计收益，单位为分 }
+        pendingRevenueMinor: { type: integer, format: int64, description: 待结算收益，单位为分 }
+        withdrawableRevenueMinor: { type: integer, format: int64, description: 可提现收益，单位为分 }
+        monthRevenueMinor: { type: integer, format: int64, description: 本月收益，单位为分 }
+        trendTotalMinor: { type: integer, format: int64, description: 当前趋势范围合计收益，单位为分 }
+        activeDeviceCount: { type: integer, description: 当前活跃托管设备数量 }
+        updatedAt: { type: string, format: date-time }
+        trend:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              amountMinor: { type: integer, format: int64 }
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              name: { type: string }
+              amountMinor: { type: integer, format: int64 }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer, format: int64 }
+              assetId: { type: integer, format: int64 }
+              assetName: { type: string }
+              assetImageUrl: { type: string }
+              type: { type: string }
+              amountMinor: { type: integer, format: int64 }
+              status: { type: string }
+              createdAt: { type: string, format: date-time }
     CatalogFilterGroupListEnvelope:
       type: object
       properties:
@@ -625,6 +905,15 @@ components:
         minPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
         maxPriceMinor: { type: integer, format: int64, description: 金额单位为分 }
         sortOrder: { type: integer }
+    SceneItem:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string }
+        imageUrl: { type: string }
+        sortOrder: { type: integer }
+        tags: { type: array, items: { type: string } }
     BrandListEnvelope:
       type: object
       properties:
@@ -715,6 +1004,19 @@ components:
         sortOrder: { type: integer }
         status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
         content: { type: array, items: { type: object } }
+    AdminSceneUpsert:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 50 }
+        description: { type: string }
+        imageUrl: { type: string, maxLength: 512 }
+        sortOrder: { type: integer, minimum: 0 }
+        tags: { type: array, maxItems: 4, items: { type: string } }
+        skuIds:
+          type: array
+          description: 该场景关联展示的商品 SKU ID 列表
+          items: { type: integer, format: int64 }
     AdminSkuUpsert:
       type: object
       required: [name, type, priceFen]
@@ -741,3 +1043,4 @@ components:
 
 security:
   - bearerAuth: []
+

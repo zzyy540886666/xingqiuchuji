@@ -37,3 +37,9 @@ description: "Guides WeChat miniprogram structure, pages, WXML/WXSS/JS, wx.reque
 - [ ] 无硬编码域名分散在业务文件。
 - [ ] 列表/表单边界（空态、加载态、错误态）齐全。
 - [ ] 未在 UI 使用 emoji 作为功能图标。
+- [ ] 完成全部的代码修改后，最后才执行该命令以完成构建与验证：
+  ```bash
+  cd "D:\Pro\星球出机小程序 - 副本\frontend"
+  npm install
+  npm run build:mp-weixin
+  ```

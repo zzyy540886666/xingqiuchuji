@@ -9,5 +9,7 @@ export interface LedgerEntry {
   amountMinor: number;
   balanceAfterMinor: number;
   description: string;
+  refType?: string;
+  refId?: string;
   createdAt: string;
 }

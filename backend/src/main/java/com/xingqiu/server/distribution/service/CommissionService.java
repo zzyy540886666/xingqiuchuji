@@ -1,7 +1,7 @@
 package com.xingqiu.server.distribution.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xingqiu.server.auth.mapper.UserMapper;
 import com.xingqiu.server.common.exception.BizException;
 import com.xingqiu.server.common.exception.ErrorCode;
 import com.xingqiu.server.common.response.PageResult;
@@ -18,9 +18,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -36,21 +39,40 @@ public class CommissionService {
     /** Protection period: 7 days. */
     private static final int PROTECT_DAYS = 7;
 
+    /** Anomaly threshold: commission > 100 yuan (10000 fen) triggers manual review flag. */
+    private static final long ANOMALY_THRESHOLD_MINOR = 100_00L;
+
+    /** Commission entry status values. */
+    public static final String STATUS_PENDING_PROTECT = "PENDING_PROTECT";
+    public static final String STATUS_SETTLEABLE = "SETTLEABLE";
+    public static final String STATUS_SETTLED = "SETTLED";
+    public static final String STATUS_FROZEN = "FROZEN";
+    public static final String STATUS_DISPUTE = "DISPUTE";
+
+    private static final List<String> HOME_PENDING_STATUSES = List.of(STATUS_PENDING_PROTECT, STATUS_SETTLEABLE);
+    private static final List<String> ALLOWED_QUERY_STATUSES = List.of(
+            "ALL", STATUS_PENDING_PROTECT, STATUS_SETTLEABLE, STATUS_SETTLED, STATUS_FROZEN, STATUS_DISPUTE
+    );
+    private static final DateTimeFormatter SETTLE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     private static final String BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     private final DistributionMapper distributionMapper;
     private final CommissionEntryMapper commissionEntryMapper;
     private final CommissionSettlementBatchMapper settlementBatchMapper;
     private final WalletService walletService;
+    private final UserMapper userMapper;
 
     public CommissionService(DistributionMapper distributionMapper,
                              CommissionEntryMapper commissionEntryMapper,
                              CommissionSettlementBatchMapper settlementBatchMapper,
-                             WalletService walletService) {
+                             WalletService walletService,
+                             UserMapper userMapper) {
         this.distributionMapper = distributionMapper;
         this.commissionEntryMapper = commissionEntryMapper;
         this.settlementBatchMapper = settlementBatchMapper;
         this.walletService = walletService;
+        this.userMapper = userMapper;
     }
 
     // ---- Invite binding ----
@@ -65,6 +87,10 @@ public class CommissionService {
 
         if (inviterUserId.equals(inviteeUserId)) {
             throw new BizException(ErrorCode.DISTRIBUTION_SELF_BIND);
+        }
+
+        if (userMapper.selectById(inviterUserId) == null) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "邀请码无效或邀请人不存在");
         }
 
         // Check invitee is not already bound
@@ -124,6 +150,14 @@ public class CommissionService {
         for (InviteRelation relation : relations) {
             int ratePercent = (relation.getLevel() == 1) ? LEVEL1_RATE_PERCENT : LEVEL2_RATE_PERCENT;
             long commissionAmount = amountMinor * ratePercent / 100;
+            if (commissionAmount <= 0) {
+                continue;
+            }
+            if (commissionExists(orderId, relation.getInviterUserId(), relation.getLevel())) {
+                log.info("Commission already exists: orderId={}, beneficiary={}, level={}",
+                        orderId, relation.getInviterUserId(), relation.getLevel());
+                continue;
+            }
 
             CommissionEntry entry = new CommissionEntry();
             entry.setOrderId(orderId);
@@ -137,9 +171,30 @@ public class CommissionService {
             entry.setCreatedAt(now);
             commissionEntryMapper.insert(entry);
 
+            // Anomaly detection: flag unusually large commissions for manual review
+            if (commissionAmount > ANOMALY_THRESHOLD_MINOR) {
+                log.warn("Commission anomaly flagged: entryId={} orderId={} amountMinor={} "
+                        + "beneficiary={} level={} — exceeds threshold of {}",
+                        entry.getId(), orderId, commissionAmount,
+                        relation.getInviterUserId(), relation.getLevel(),
+                        ANOMALY_THRESHOLD_MINOR);
+                entry.setStatus(STATUS_FROZEN);
+                commissionEntryMapper.updateById(entry);
+                continue;
+            }
+
             log.info("Commission created: beneficiary={}, source={}, level={}, amount={} cents",
                     relation.getInviterUserId(), paidUserId, relation.getLevel(), commissionAmount);
         }
+    }
+
+    private boolean commissionExists(Long orderId, Long beneficiaryUserId, Integer level) {
+        LambdaQueryWrapper<CommissionEntry> query = new LambdaQueryWrapper<>();
+        query.eq(CommissionEntry::getOrderId, orderId)
+                .eq(CommissionEntry::getBeneficiaryUserId, beneficiaryUserId)
+                .eq(CommissionEntry::getLevel, level);
+        Long count = commissionEntryMapper.selectCount(query);
+        return count != null && count > 0;
     }
 
     // ---- Settlement ----
@@ -210,6 +265,110 @@ public class CommissionService {
                 settleableEntries.size(), totalAmount, batch.getBatchNo());
     }
 
+    // ---- Risk control ----
+
+    /**
+     * Freeze a commission entry manually (e.g., admin review, anomaly audit).
+     * Only active entries (PENDING_PROTECT, SETTLEABLE) can be frozen.
+     * Already settled or already frozen entries cannot be frozen again.
+     */
+    @Transactional
+    public void freezeCommission(Long entryId, String reason) {
+        CommissionEntry entry = commissionEntryMapper.selectById(entryId);
+        if (entry == null) {
+            throw new BizException(ErrorCode.COMMISSION_NOT_FOUND);
+        }
+
+        String currentStatus = entry.getStatus();
+        if (STATUS_FROZEN.equals(currentStatus)) {
+            log.info("Commission entryId={} already frozen, skipping", entryId);
+            return;
+        }
+
+        if (STATUS_SETTLED.equals(currentStatus)) {
+            throw new BizException(ErrorCode.COMMISSION_CANNOT_FREEZE,
+                    "已结算的佣金不可冻结: entryId=" + entryId);
+        }
+
+        entry.setStatus(STATUS_FROZEN);
+        commissionEntryMapper.updateById(entry);
+        log.info("Commission frozen: entryId={} reason={}", entryId, reason);
+    }
+
+    /**
+     * Handle order refund: freeze all related commission entries that haven't been settled yet.
+     * Called when an order is refunded.
+     * Settled commissions may require clawback (debited from wallet).
+     */
+    @Transactional
+    public void handleRefund(Long orderId) {
+        LambdaQueryWrapper<CommissionEntry> query = new LambdaQueryWrapper<>();
+        query.eq(CommissionEntry::getOrderId, orderId);
+        List<CommissionEntry> entries = commissionEntryMapper.selectList(query);
+
+        if (entries.isEmpty()) {
+            log.info("No commission entries found for orderId={}, nothing to clawback", orderId);
+            return;
+        }
+
+        int frozenCount = 0;
+        int clawbackCount = 0;
+
+        for (CommissionEntry entry : entries) {
+            String status = entry.getStatus();
+
+            if (STATUS_SETTLED.equals(status)) {
+                // Already settled: attempt clawback by debiting wallet
+                try {
+                    walletService.debit(
+                            entry.getBeneficiaryUserId(),
+                            entry.getAmountMinor(),
+                            "COMMISSION_CLAWBACK",
+                            entry.getId().toString(),
+                            "订单退款,佣金追回 (订单" + orderId + " L" + entry.getLevel() + ")"
+                    );
+                    entry.setStatus(STATUS_FROZEN);
+                    entry.setSettledAt(null);
+                    commissionEntryMapper.updateById(entry);
+                    clawbackCount++;
+                    log.info("Commission clawed back: entryId={} beneficiary={} amountMinor={}",
+                            entry.getId(), entry.getBeneficiaryUserId(), entry.getAmountMinor());
+                } catch (Exception e) {
+                    log.error("Failed to clawback commission entryId={} beneficiary={}: {}",
+                            entry.getId(), entry.getBeneficiaryUserId(), e.getMessage());
+                    // Even if debit fails, freeze the entry to prevent re-settlement
+                    entry.setStatus(STATUS_FROZEN);
+                    commissionEntryMapper.updateById(entry);
+                    frozenCount++;
+                }
+            } else if (STATUS_FROZEN.equals(status)) {
+                log.info("Commission entryId={} already frozen, skipping", entry.getId());
+            } else {
+                // PENDING_PROTECT or SETTLEABLE: just freeze
+                entry.setStatus(STATUS_FROZEN);
+                commissionEntryMapper.updateById(entry);
+                frozenCount++;
+                log.info("Commission frozen due to refund: entryId={}, orderId={}",
+                        entry.getId(), orderId);
+            }
+        }
+
+        log.info("Refund handling for orderId={} complete: frozen={}, clawed-back={}, total={}",
+                orderId, frozenCount, clawbackCount, entries.size());
+    }
+
+    /**
+     * Check and return whether a commission entry has been flagged for anomaly.
+     */
+    public boolean isEntryAnomalous(Long entryId) {
+        CommissionEntry entry = commissionEntryMapper.selectById(entryId);
+        if (entry == null) {
+            throw new BizException(ErrorCode.COMMISSION_NOT_FOUND);
+        }
+        return STATUS_FROZEN.equals(entry.getStatus())
+                && entry.getAmountMinor() > ANOMALY_THRESHOLD_MINOR;
+    }
+
     // ---- Queries ----
 
     /**
@@ -219,12 +378,24 @@ public class CommissionService {
         DistributionInfoResponse resp = new DistributionInfoResponse();
 
         String inviteCode = encodeInviteCode(userId);
+        DistributionInfoResponse.Overview overview = new DistributionInfoResponse.Overview();
+        long pendingCommission = defaultZero(distributionMapper.sumCommissionByStatuses(userId, HOME_PENDING_STATUSES));
+        long settledCommission = defaultZero(distributionMapper.sumCommissionByStatuses(userId, List.of(STATUS_SETTLED)));
+        long withdrawnCommission = defaultZero(distributionMapper.sumSuccessfulWithdrawnCommission(userId));
+        overview.setPendingCommission(pendingCommission);
+        overview.setWithdrawnCommission(withdrawnCommission);
+        overview.setWithdrawableCommission(Math.max(0L, settledCommission - withdrawnCommission));
+        resp.setOverview(overview);
         resp.setInviteCode(inviteCode);
-        resp.setInviteUrl("https://xingqiu.com/invite?code=" + inviteCode);
+        resp.setInviteUrl("https://xingqiu.cn/invite?inviteCode=" + inviteCode);
+        resp.setInvitePath("/pages/loading/index?inviteCode=" + inviteCode);
 
         DistributionInfoResponse.TeamStats stats = new DistributionInfoResponse.TeamStats();
         stats.setLevel1Count(distributionMapper.countLevel1(userId));
         stats.setLevel2Count(distributionMapper.countLevel2(userId));
+        LocalDate today = LocalDate.now();
+        stats.setTodayNew(distributionMapper.countTodayNew(userId, today.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        stats.setTotalInvite(distributionMapper.countTotalInvite(userId));
         resp.setTeamStats(stats);
 
         return resp;
@@ -237,6 +408,9 @@ public class CommissionService {
         DistributionInfoResponse.TeamStats stats = new DistributionInfoResponse.TeamStats();
         stats.setLevel1Count(distributionMapper.countLevel1(userId));
         stats.setLevel2Count(distributionMapper.countLevel2(userId));
+        LocalDate today = LocalDate.now();
+        stats.setTodayNew(distributionMapper.countTodayNew(userId, today.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        stats.setTotalInvite(distributionMapper.countTotalInvite(userId));
         return stats;
     }
 
@@ -252,21 +426,18 @@ public class CommissionService {
      * Get my commissions with pagination and optional status filter.
      */
     public PageResult<CommissionResponse> getMyCommissions(Long userId, String status, int page, int pageSize) {
-        LambdaQueryWrapper<CommissionEntry> query = new LambdaQueryWrapper<>();
-        query.eq(CommissionEntry::getBeneficiaryUserId, userId);
-        if (status != null && !status.isEmpty()) {
-            query.eq(CommissionEntry::getStatus, status);
-        }
-        query.orderByDesc(CommissionEntry::getCreatedAt);
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.min(Math.max(pageSize, 1), 50);
+        String normalizedStatus = normalizeStatus(status);
+        long offset = (long) (safePage - 1) * safePageSize;
 
-        Page<CommissionEntry> mpPage = new Page<>(page, pageSize);
-        Page<CommissionEntry> result = commissionEntryMapper.selectPage(mpPage, query);
-
-        List<CommissionResponse> items = result.getRecords().stream()
-                .map(this::toCommissionResponse)
+        List<CommissionResponse> items = distributionMapper.findCommissionPage(userId, normalizedStatus, offset, safePageSize)
+                .stream()
+                .filter(Objects::nonNull)
+                .map(this::enrichCommissionResponse)
                 .collect(Collectors.toList());
-
-        return PageResult.of(items, result.getTotal(), page, pageSize);
+        long total = distributionMapper.countCommissionPage(userId, normalizedStatus);
+        return PageResult.of(items, total, safePage, safePageSize);
     }
 
     // ---- Internal helpers ----
@@ -284,7 +455,57 @@ public class CommissionService {
         resp.setProtectUntil(entry.getProtectUntil());
         resp.setSettledAt(entry.getSettledAt());
         resp.setCreatedAt(entry.getCreatedAt());
-        return resp;
+        return enrichCommissionResponse(resp);
+    }
+
+    private CommissionResponse enrichCommissionResponse(CommissionResponse response) {
+        if (response == null) {
+            return null;
+        }
+        if (response.getProductImage() == null || response.getProductImage().isBlank()) {
+            response.setProductImage("/static/icons/device-placeholder.svg");
+        }
+        String effectiveStatus = response.getStatus();
+        if (STATUS_FROZEN.equals(effectiveStatus)) {
+            effectiveStatus = STATUS_DISPUTE;
+        }
+        response.setStatus(effectiveStatus);
+        response.setSettleTime(buildSettleTime(response));
+        return response;
+    }
+
+    private String buildSettleTime(CommissionResponse response) {
+        if (STATUS_SETTLED.equals(response.getStatus()) && response.getSettledAt() != null) {
+            return response.getSettledAt().format(SETTLE_TIME_FORMATTER);
+        }
+        if (STATUS_PENDING_PROTECT.equals(response.getStatus()) && response.getProtectUntil() != null) {
+            return response.getProtectUntil().format(SETTLE_TIME_FORMATTER);
+        }
+        if (STATUS_SETTLEABLE.equals(response.getStatus())) {
+            return "可立即提现";
+        }
+        if (STATUS_DISPUTE.equals(response.getStatus())) {
+            return "风控审核中";
+        }
+        if (response.getProtectUntil() != null) {
+            return response.getProtectUntil().format(SETTLE_TIME_FORMATTER);
+        }
+        return "";
+    }
+
+    private String normalizeStatus(String status) {
+        String normalized = status == null ? "ALL" : status.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_QUERY_STATUSES.contains(normalized)) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "Unsupported commission status: " + status);
+        }
+        if (STATUS_DISPUTE.equals(normalized)) {
+            return STATUS_FROZEN;
+        }
+        return normalized;
+    }
+
+    private long defaultZero(Long value) {
+        return value == null ? 0L : value;
     }
 
     /**

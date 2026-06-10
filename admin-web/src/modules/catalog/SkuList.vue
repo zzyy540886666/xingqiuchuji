@@ -10,24 +10,23 @@
 
       <el-form :inline="true" :model="filters" class="filter-form">
         <el-form-item label="类型">
-          <el-select v-model="filters.type" clearable placeholder="全部">
+          <el-select v-model="filters.type" clearable placeholder="全部" style="width: 130px" @change="handleSearch">
             <el-option label="租赁" value="RENT" />
             <el-option label="购买" value="BUY" />
             <el-option label="软件" value="SOFTWARE" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" clearable placeholder="全部">
+          <el-select v-model="filters.status" clearable placeholder="全部" style="width: 130px" @change="handleSearch">
             <el-option label="上架" value="ON_SHELF" />
             <el-option label="下架" value="OFF_SHELF" />
-            <el-option label="草稿" value="DRAFT" />
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
-          <el-input v-model="filters.keyword" placeholder="名称/品牌" clearable />
+          <el-input v-model="filters.keyword" placeholder="名称/品牌" clearable style="width: 220px" @keyup.enter="handleSearch" @clear="handleSearch" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="fetchList">查询</el-button>
+          <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
         </el-form-item>
       </el-form>
@@ -51,11 +50,20 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="推荐" width="80">
+          <template #default="{ row }">
+            <el-tag v-if="row.recommended" type="warning" size="small">推荐</el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
             <el-button link :type="row.status === 'ON_SHELF' ? 'warning' : 'success'" @click="handleToggleShelf(row)">
               {{ row.status === 'ON_SHELF' ? '下架' : '上架' }}
+            </el-button>
+            <el-button link :type="row.recommended ? 'info' : 'warning'" @click="handleToggleRecommend(row)">
+              {{ row.recommended ? '下推荐' : '上推荐' }}
             </el-button>
           </template>
         </el-table-column>
@@ -90,7 +98,7 @@ const pageSize = ref(20)
 
 const filters = reactive({ type: '', status: '', keyword: '' })
 const typeMap: Record<string, string> = { RENT: '租赁', BUY: '购买', SOFTWARE: '软件' }
-const statusMap: Record<string, string> = { ON_SHELF: '上架', OFF_SHELF: '下架', DRAFT: '草稿' }
+const statusMap: Record<string, string> = { ON_SHELF: '上架', OFF_SHELF: '下架' }
 
 async function fetchList() {
   loading.value = true
@@ -111,6 +119,11 @@ function resetFilters() {
   fetchList()
 }
 
+function handleSearch() {
+  page.value = 1
+  fetchList()
+}
+
 function handleCreate() {
   router.push('/catalog/sku/new')
 }
@@ -124,6 +137,16 @@ async function handleToggleShelf(row: any) {
   await ElMessageBox.confirm(`确认${action}「${row.name}」？`, '二次确认', { type: 'warning' })
   try {
     await http.post(`/skus/${row.id}/toggle-shelf`)
+    ElMessage.success(`${action}成功`)
+    fetchList()
+  } catch { /* handled by interceptor */ }
+}
+
+async function handleToggleRecommend(row: any) {
+  const action = row.recommended ? '下推荐' : '上推荐'
+  await ElMessageBox.confirm(`确认将「${row.name}」${action}？`, '推荐设置', { type: 'warning' })
+  try {
+    await http.post(`/skus/${row.id}/toggle-recommend`)
     ElMessage.success(`${action}成功`)
     fetchList()
   } catch { /* handled by interceptor */ }

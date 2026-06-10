@@ -37,41 +37,6 @@ input {
   background: #fff;
 }
 
-.status-row {
-  height: 56rpx;
-  padding: 18rpx 32rpx 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #111;
-  font-size: 28rpx;
-  font-weight: 700;
-}
-
-.status-icons {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.capsule {
-  width: 168rpx;
-  height: 58rpx;
-  border: 1rpx solid rgba(0, 0, 0, 0.1);
-  border-radius: 999rpx;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.04);
-}
-
-.capsule-line {
-  width: 1rpx;
-  height: 32rpx;
-  background: #e5e7eb;
-}
-
 .title-bar {
   height: 76rpx;
   padding: 0 28rpx;

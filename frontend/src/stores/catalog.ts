@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { readJsonStorage, writeJsonStorage } from "../utils/storage";
 
 export interface CatalogFilter {
   type: "RENT" | "BUY" | "SOFTWARE";
@@ -19,9 +20,7 @@ export const useCatalogStore = defineStore("catalog", () => {
     pageSize: 20,
   });
 
-  const searchHistory = ref<string[]>(
-    JSON.parse(uni.getStorageSync("xq_search_history") || "[]")
-  );
+  const searchHistory = ref<string[]>(readJsonStorage("xq_search_history", []));
 
   function setFilter(partial: Partial<CatalogFilter>) {
     Object.assign(filter.value, partial, { page: 1 });
@@ -33,7 +32,7 @@ export const useCatalogStore = defineStore("catalog", () => {
       keyword,
       ...searchHistory.value.filter((k) => k !== keyword),
     ].slice(0, 20);
-    uni.setStorageSync("xq_search_history", JSON.stringify(searchHistory.value));
+    writeJsonStorage("xq_search_history", searchHistory.value);
   }
 
   function clearSearchHistory() {

@@ -36,6 +36,15 @@ alwaysApply: true
 
 - **禁止**使用 emoji 作为功能图标；统一使用**极简 SVG** 图标资源。
 
+## 8. 自动构建与编译
+
+- 每次修改小程序代码后，必须自动执行以下命令以确保代码能够正确编译：
+  ```bash
+  cd "D:\Pro\星球出机小程序 - 副本\frontend"
+  npm install
+  npm run build:mp-weixin
+  ```
+
 ## 与 Skills 的关系
 
 - 安全细节可结合 `.cursor/skills/xingqiu-secure-by-default`、`xingqiu-api-contract` 执行；后端实现结合 `xingqiu-springboot-backend`，数据一致性结合 `xingqiu-data-cache-consistency`，交付前结合 `xingqiu-code-review-delivery`；本规则为全局强制摘要。

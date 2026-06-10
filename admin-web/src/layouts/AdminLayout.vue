@@ -9,7 +9,7 @@
           <el-menu-item index="/catalog/sku">SKU 列表</el-menu-item>
           <el-menu-item index="/catalog/brands">品牌主数据</el-menu-item>
           <el-menu-item index="/catalog/filters">商品筛选菜单</el-menu-item>
-          <el-menu-item index="/catalog/scenes">场景组合</el-menu-item>
+          <el-menu-item index="/catalog/scenes">首页场景应用</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="/operations">
           <template #title><el-icon><Flag /></el-icon><span>活动与运营</span></template>
@@ -49,7 +49,7 @@
         </el-sub-menu>
       </el-menu>
     </el-aside>
-    <el-container>
+    <el-container class="content-shell">
       <el-header class="header">
         <div class="header-left">
           <el-icon class="collapse" @click="collapsed = !collapsed"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
@@ -80,12 +80,14 @@ function logout() { auth.logout(); router.push('/login') }
 </script>
 
 <style scoped>
-.layout { min-height: 100vh; }
-.aside { background: #001529; transition: width .2s; overflow: hidden; }
+.layout { height: 100vh; overflow: hidden; }
+.aside { height: 100vh; display: flex; flex-direction: column; background: #001529; transition: width .2s; overflow: hidden; }
 .logo { height: 56px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; border-bottom: 1px solid #ffffff1a; }
+.aside :deep(.el-menu) { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; border-right: none; }
+.content-shell { height: 100vh; min-width: 0; overflow: hidden; }
 .header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #f0f0f0; background: #fff; }
 .header-left, .profile { display: flex; align-items: center; gap: 14px; }
 .collapse { cursor: pointer; font-size: 20px; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; justify-content: center; background: #ecf5ff; color: #409eff; }
-.main { background: #f5f7fa; min-height: calc(100vh - 60px); }
+.main { height: calc(100vh - 60px); min-height: 0; overflow-y: auto; background: #f5f7fa; }
 </style>

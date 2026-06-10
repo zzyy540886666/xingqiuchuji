@@ -1,6 +1,7 @@
 package com.xingqiu.server.catalog.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.xingqiu.server.appconfig.service.CatalogPlacementService;
 import com.xingqiu.server.catalog.domain.Scene;
 import com.xingqiu.server.catalog.domain.SceneSkuRel;
 import com.xingqiu.server.catalog.domain.Sku;
@@ -25,20 +26,26 @@ public class SceneService {
     private final SceneMapper sceneMapper;
     private final SceneSkuRelMapper sceneSkuRelMapper;
     private final SkuService skuService;
+    private final CatalogPlacementService catalogPlacementService;
 
     public SceneService(SceneMapper sceneMapper,
                         SceneSkuRelMapper sceneSkuRelMapper,
-                        SkuService skuService) {
+                        SkuService skuService,
+                        CatalogPlacementService catalogPlacementService) {
         this.sceneMapper = sceneMapper;
         this.sceneSkuRelMapper = sceneSkuRelMapper;
         this.skuService = skuService;
+        this.catalogPlacementService = catalogPlacementService;
     }
 
     @Cacheable(value = "scenes", key = "'all'")
     public List<Scene> listAll() {
         LambdaQueryWrapper<Scene> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByAsc(Scene::getSortOrder);
-        return sceneMapper.selectList(wrapper);
+        List<Scene> scenes = sceneMapper.selectList(wrapper);
+        Map<Long, List<String>> tags = catalogPlacementService.getSceneTags();
+        scenes.forEach(scene -> scene.setTags(tags.getOrDefault(scene.getId(), List.of())));
+        return scenes;
     }
 
     @Cacheable(value = "scenes", key = "#sceneKey")

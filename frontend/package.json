@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:mp-weixin": "uni -p mp-weixin",
-    "build:mp-weixin": "uni build -p mp-weixin"
+    "build:mp-weixin": "uni build -p mp-weixin && node scripts/ensure-mp-weixin-compat.mjs"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-alpha-5010120260519001",

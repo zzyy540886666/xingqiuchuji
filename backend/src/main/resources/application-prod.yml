@@ -5,7 +5,16 @@
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/xingqiu?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      password: ${REDIS_PASSWORD}
+
+xingqiu:
+  jwt:
+    secret: ${JWT_SECRET}
 
 springdoc:
   api-docs:

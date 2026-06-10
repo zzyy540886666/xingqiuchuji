@@ -1,4 +1,5 @@
 import { request } from "../utils/request";
+import { buildQuery } from "../utils/query";
 
 export interface OrderPreviewParams {
   skuId: number;
@@ -17,6 +18,7 @@ export interface OrderPreviewResult {
   priceBreakdown: PriceBreakdownItem[];
   payableAmount: number;
   depositAmount: number;
+  discountAmount?: number;
 }
 
 export interface Order {
@@ -34,6 +36,15 @@ export interface Order {
   rentEndDate?: string;
   addressJson?: string;
   createdAt: string;
+  statusDesc?: string;
+  skuTags?: string;
+  logisticsCompany?: string;
+  logisticsNodes?: Array<{status: string, time: string, isCurrent: boolean}>;
+  softwareLicense?: string;
+  softwareDownloadUrl?: string;
+  softwareValidUntil?: string;
+  softwareCompatibleModels?: string;
+  softwareDeliveryMethod?: string;
 }
 
 export function previewOrder(params: OrderPreviewParams): Promise<OrderPreviewResult> {
@@ -62,12 +73,8 @@ export function getWechatPayParams(orderId: string) {
 }
 
 export function getOrderList(params: { type?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: Order[]; total: number }> {
-  const query = new URLSearchParams();
-  if (params.type) query.set("type", params.type);
-  if (params.status) query.set("status", params.status);
-  if (params.page) query.set("page", String(params.page));
-  if (params.pageSize) query.set("pageSize", String(params.pageSize || 20));
-  return request<{ items: Order[]; total: number }>(`/orders?${query.toString()}`);
+  const query = buildQuery({ ...params, pageSize: params.pageSize || 20 });
+  return request<{ items: Order[]; total: number }>(`/orders${query ? `?${query}` : ""}`);
 }
 
 export function getOrderDetail(orderId: string): Promise<Order> {

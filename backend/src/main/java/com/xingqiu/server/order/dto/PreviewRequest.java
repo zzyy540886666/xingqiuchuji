@@ -1,11 +1,18 @@
 package com.xingqiu.server.order.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 
 public class PreviewRequest {
 
+    @NotNull(message = "SKU ID不能为空")
     private Long skuId;
 
+    @NotBlank(message = "订单类型不能为空")
+    @Size(max = 32, message = "订单类型最长32字符")
     private String orderType;
 
     private LocalDate rentStartDate;
@@ -13,7 +20,20 @@ public class PreviewRequest {
     private LocalDate rentEndDate;
 
     /** Minimal address info for price estimation. */
+    @Size(max = 500, message = "地址信息最长500字符")
     private String address;
+
+    /**
+     * Deprecated: discounts must be verified and calculated by the server.
+     * Kept only to reject tampered positive client-submitted values without breaking old clients that send 0.
+     */
+    private Long couponDiscountMinor;
+
+    /**
+     * Deprecated: discounts must be verified and calculated by the server.
+     * Kept only to reject tampered positive client-submitted values without breaking old clients that send 0.
+     */
+    private Long lightYearDiscountMinor;
 
     public Long getSkuId() { return skuId; }
     public void setSkuId(Long skuId) { this.skuId = skuId; }
@@ -29,4 +49,10 @@ public class PreviewRequest {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public Long getCouponDiscountMinor() { return couponDiscountMinor; }
+    public void setCouponDiscountMinor(Long couponDiscountMinor) { this.couponDiscountMinor = couponDiscountMinor; }
+
+    public Long getLightYearDiscountMinor() { return lightYearDiscountMinor; }
+    public void setLightYearDiscountMinor(Long lightYearDiscountMinor) { this.lightYearDiscountMinor = lightYearDiscountMinor; }
 }

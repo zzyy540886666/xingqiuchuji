@@ -1,5 +1,9 @@
 <template>
-  <view class="page">
+  <view class="page safe-bottom">
+    <template v-if="pageLoading">
+      <Skeleton variant="repair-create" />
+    </template>
+    <template v-else>
     <view class="card">
       <text class="title">报修信息</text>
       <view class="form-item">
@@ -30,12 +34,22 @@
     <view class="submit-btn" :class="{ disabled: !canSubmit || submitting }" @tap="handleSubmit">
       {{ submitting ? "提交中..." : "提交报修" }}
     </view>
+    </template>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from "vue";
+import { ref, computed, reactive, onMounted } from "vue";
 import { createWorkOrder, uploadRepairImage } from "../../services/repair";
+import Skeleton from "../../components/PageSkeleton.vue";
+
+const pageLoading = ref(true);
+
+onMounted(() => {
+  setTimeout(() => {
+    pageLoading.value = false;
+  }, 400);
+});
 
 const faultTypes = ["机械故障", "电气故障", "软件异常", "外观损坏", "其他"];
 const form = reactive({ faultType: "", description: "", images: [] as string[], location: "" });

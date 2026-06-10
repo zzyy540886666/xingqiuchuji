@@ -19,6 +19,7 @@ public class Post {
     private String content;
     private String status;
     private Integer likeCount;
+    private Integer collectCount;
     private Integer commentCount;
     private Boolean isPinned;
     private LocalDateTime createdAt;
@@ -30,6 +31,7 @@ public class Post {
     public Post() {
         this.status = PostStatus.AUDITING.name();
         this.likeCount = 0;
+        this.collectCount = 0;
         this.commentCount = 0;
         this.isPinned = false;
         this.deleted = 0;
@@ -51,6 +53,8 @@ public class Post {
     public void setStatus(String status) { this.status = status; }
     public Integer getLikeCount() { return likeCount; }
     public void setLikeCount(Integer likeCount) { this.likeCount = likeCount; }
+    public Integer getCollectCount() { return collectCount; }
+    public void setCollectCount(Integer collectCount) { this.collectCount = collectCount; }
     public Integer getCommentCount() { return commentCount; }
     public void setCommentCount(Integer commentCount) { this.commentCount = commentCount; }
     public Boolean getIsPinned() { return isPinned; }

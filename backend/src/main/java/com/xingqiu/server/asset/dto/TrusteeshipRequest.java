@@ -2,7 +2,6 @@ package com.xingqiu.server.asset.dto;
 
 import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 /**
  * 创建托管请求
@@ -17,9 +16,7 @@ public class TrusteeshipRequest {
     @NotNull
     private LocalDateTime endTime;
 
-    /** 日租金，单位：分 */
-    @NotNull
-    @Positive
+    /** 日租金，单位：分。未传时使用平台统一定价 */
     private Long dailyRateMinor;
 
     public Long getAssetId() { return assetId; }

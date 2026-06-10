@@ -1,6 +1,7 @@
 import { request } from "../utils/request";
 import type { WorkOrder } from "../types/workorder";
-import { apiBaseUrl, apiPrefix } from "../utils/request";
+import { apiBaseUrl, apiPrefix, resolveUploadUrl } from "../utils/request";
+import { buildQuery } from "../utils/query";
 
 export type { WorkOrder };
 
@@ -14,7 +15,7 @@ export function uploadRepairImage(filePath: string): Promise<string> {
       header: token ? { Authorization: `Bearer ${token}` } : {},
       success(result) {
         const body = JSON.parse(result.data) as { success: boolean; data?: { url: string }; error?: { message: string } };
-        if (body.success && body.data?.url) resolve(body.data.url);
+        if (body.success && body.data?.url) resolve(resolveUploadUrl(body.data.url));
         else reject(new Error(body.error?.message || "图片上传失败"));
       },
       fail(error) { reject(new Error(error.errMsg || "图片上传失败")); },
@@ -27,11 +28,8 @@ export function createWorkOrder(data: { deviceId?: string; faultType: string; de
 }
 
 export async function getWorkOrders(params: { status?: string; page?: number; pageSize?: number }): Promise<{ items: WorkOrder[]; total: number }> {
-  const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
-  if (params.page) query.set("page", String(params.page));
-  if (params.pageSize) query.set("pageSize", String(params.pageSize || 20));
-  const page = await request<{ items: BackendWorkOrder[]; total: number }>(`/work-orders?${query.toString()}`);
+  const query = buildQuery({ ...params, pageSize: params.pageSize || 20 });
+  const page = await request<{ items: BackendWorkOrder[]; total: number }>(`/work-orders${query ? `?${query}` : ""}`);
   return { ...page, items: page.items.map(mapWorkOrder) };
 }
 
@@ -70,6 +68,7 @@ interface BackendWorkOrder {
 function mapWorkOrder(item: BackendWorkOrder): WorkOrder {
   let images: string[] = [];
   try { images = item.images ? JSON.parse(item.images) : []; } catch { images = []; }
+  images = images.map(resolveUploadUrl);
   return {
     id: item.id,
     deviceName: item.deviceName || "",

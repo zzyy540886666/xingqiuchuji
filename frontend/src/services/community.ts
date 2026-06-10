@@ -1,4 +1,5 @@
 import { request } from "../utils/request";
+import { buildQuery } from "../utils/query";
 
 export interface Post {
   id: string;
@@ -12,9 +13,24 @@ export interface Post {
   topicId?: string;
   topicName?: string;
   likeCount: number;
+  collectCount?: number;
   commentCount: number;
-  liked: boolean;
+  liked?: boolean;
+  collected?: boolean;
+  comments?: Comment[];
   status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  userId: string;
+  parentId?: string;
+  content: string;
+  status: string;
+  authorNickname?: string;
+  authorAvatar?: string;
   createdAt: string;
 }
 
@@ -28,15 +44,36 @@ export interface Circle {
 }
 
 export function getFeed(params: { cursor?: string; limit?: number; topicId?: string }): Promise<Post[]> {
-  const query = new URLSearchParams();
-  if (params.cursor) query.set("cursor", params.cursor);
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.topicId) query.set("topicId", params.topicId);
-  return request(`/community/feed?${query.toString()}`);
+  const query = buildQuery(params);
+  return request(`/community/feed${query ? `?${query}` : ""}`);
 }
 
 export function createPost(data: { circleId: string; title: string; content: string; mediaUrls?: string[]; topicId?: string }): Promise<{ id: string }> {
   return request("/community/posts", { method: "POST", data });
+}
+
+export function getPostDetail(postId: string): Promise<Post> {
+  return request(`/community/posts/${postId}`);
+}
+
+export function likePost(postId: string): Promise<Post> {
+  return request(`/community/posts/${postId}/like`, { method: "POST" });
+}
+
+export function collectPost(postId: string): Promise<Post> {
+  return request(`/community/posts/${postId}/collect`, { method: "POST" });
+}
+
+export function followUser(userId: string): Promise<boolean> {
+  return request(`/community/users/${userId}/follow`, { method: "POST" });
+}
+
+export function addComment(postId: string, data: { content: string; parentId?: string }): Promise<Comment> {
+  return request(`/community/posts/${postId}/comments`, { method: "POST", data });
+}
+
+export function getComments(postId: string): Promise<Comment[]> {
+  return request(`/community/posts/${postId}/comments`);
 }
 
 export function getUploadSts(): Promise<{ tmpSecretId: string; tmpSecretKey: string; sessionToken: string; prefix: string; bucket: string; region: string }> {
@@ -52,6 +89,7 @@ export function joinCircle(circleId: string): Promise<void> {
 }
 
 export function getCircleFeed(circleId: string, params: { cursor?: string }): Promise<Post[]> {
-  const query = params.cursor ? `?cursor=${params.cursor}` : "";
+  const queryString = buildQuery(params);
+  const query = queryString ? `?${queryString}` : "";
   return request(`/community/circles/${circleId}/feed${query}`);
 }

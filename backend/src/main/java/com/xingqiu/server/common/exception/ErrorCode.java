@@ -55,6 +55,9 @@ public enum ErrorCode {
     // Distribution — BE-10
     DISTRIBUTION_SELF_BIND("DISTRIBUTION_SELF_BIND", "不可绑定自己为邀请人"),
     COMMISSION_NOT_FOUND("COMMISSION_NOT_FOUND", "佣金记录不存在"),
+    COMMISSION_CANNOT_FREEZE("COMMISSION_CANNOT_FREEZE", "当前状态不可冻结"),
+    COMMISSION_AMOUNT_ANOMALY("COMMISSION_AMOUNT_ANOMALY", "佣金金额异常，已触发风控冻结"),
+
 
     // Config — BE-11
     CONFIG_NOT_FOUND("CONFIG_NOT_FOUND", "配置项不存在"),

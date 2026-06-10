@@ -14,7 +14,7 @@ public class MembershipEvent {
 
     private Long userId;
 
-    /** 事件类型: LEVEL_UP / NATIVE_TAGGED / PLANET_CARD_PURCHASE */
+    /** Event type: LEVEL_UP / NATIVE_TAGGED / PLANET_CARD_PURCHASE / PAID_ORDER. */
     private String eventType;
 
     private String description;

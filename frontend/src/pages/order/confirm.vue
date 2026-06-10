@@ -1,13 +1,16 @@
 <template>
   <view class="page order-page">
     <view class="header order-header">
-      <StatusBar />
       <view class="order-title">
         <view class="back-button" @tap="back"><image class="back-icon" src="/static/icons/back.svg" mode="aspectFit" /></view>
         <text>确认订单</text>
-        <MiniCapsule />
       </view>
     </view>
+
+    <template v-if="loading">
+      <Skeleton variant="order-confirm" />
+    </template>
+    <template v-else>
 
     <view class="address-card card" @tap="chooseAddress">
       <image class="pin" src="/static/icons/pin.svg" mode="aspectFit" />
@@ -26,7 +29,7 @@
 
     <view class="order-card card">
       <view class="product-row">
-        <image class="order-image" :src="product?.image || '/static/images/robot-dog.png'" mode="aspectFill" />
+        <image v-if="product?.image" class="order-image" :src="product.image" mode="aspectFit" />
         <view class="order-product">
           <text class="order-product-title">{{ product?.title || "机器人租赁服务" }}</text>
           <view class="order-tags"><text>{{ orderTypeLabel }}</text><text v-if="product?.brand">{{ product.brand }}</text></view>
@@ -66,6 +69,23 @@
       <view><text>{{ invoiceRequested ? "已选电子普通发票" : "可选择" }}</text><image class="chevron" src="/static/icons/chevron-right.svg" mode="aspectFit" /></view>
     </view>
 
+    <view class="discount-card card">
+      <view class="discount-row" @tap="toggleCoupon">
+        <view>
+          <text>优惠券</text>
+          <text class="discount-desc">省 {{ formatAmount(availableCouponMinor) }}</text>
+        </view>
+        <text :class="{ active: useCoupon }">{{ useCoupon ? "已使用" : "未使用" }}</text>
+      </view>
+      <view class="discount-row" @tap="toggleLightYear">
+        <view>
+          <text>光年币</text>
+          <text class="discount-desc">省 {{ formatAmount(availableLightYearMinor) }}</text>
+        </view>
+        <text :class="{ active: useLightYear }">{{ useLightYear ? "已使用" : "未使用" }}</text>
+      </view>
+    </view>
+
     <view class="fee-card card">
       <text class="fee-title">费用信息</text>
       <view v-for="fee in fees" :key="fee.label" class="fee-row">
@@ -94,27 +114,35 @@
         <view class="green-pill" :class="{ disabled: !preview || paying }" @tap="pay">{{ paying ? "处理中..." : "微信支付" }}</view>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import MiniCapsule from "../../components/MiniCapsule.vue";
-import StatusBar from "../../components/StatusBar.vue";
 import { getSkuDetail, type SkuItem } from "../../services/catalog";
 import { createOrder, getWechatPayParams, previewOrder, type OrderPreviewParams, type OrderPreviewResult } from "../../services/order";
 import { formatAmount } from "../../utils/format";
+import Skeleton from "../../components/PageSkeleton.vue";
+import { redirectToPage } from "../../utils/navigation";
+import { buildPageUrl } from "../../utils/query";
 
 const durations = [{ label: "30天", days: 30 }, { label: "60天", days: 60 }, { label: "180天", days: 180 }, { label: "365天", days: 365 }];
 const selectedDuration = ref(30);
 const product = ref<SkuItem | null>(null);
 const preview = ref<OrderPreviewResult | null>(null);
 const paying = ref(false);
+const loading = ref(true);
 const invoiceRequested = ref(false);
 const remark = ref("");
 const recipient = ref({ name: "收货人", phone: "" });
 const deliveryAddress = ref("");
+const selectedAddress = ref<Record<string, string> | null>(null);
+const useCoupon = ref(false);
+const useLightYear = ref(false);
+const availableCouponMinor = 0;
+const availableLightYearMinor = 0;
 let skuId = 0;
 const orderType = ref<OrderPreviewParams["orderType"]>("RENT");
 
@@ -128,13 +156,22 @@ const orderFields = computed(() => [
   ] : []),
   { label: "押金", value: preview.value ? formatAmount(preview.value.depositAmount) : "--" },
 ]);
-const fees = computed(() => preview.value?.priceBreakdown.map((fee) => ({
-  label: fee.label,
-  amount: formatAmount(fee.amountMinor),
-  used: fee.amountMinor < 0,
-})) || []);
+const fees = computed(() => (preview.value?.priceBreakdown ?? []).map((fee) => {
+  let label = fee.label;
+  if (label === 'Buyout price') label = '买断价';
+  else if (label === 'Deposit') label = '押金';
+  else if (label === 'Shipping') label = '运费';
+  else if (label === 'Rent fee') label = '租金';
+  
+  return {
+    label,
+    amount: formatAmount(fee.amountMinor),
+    used: fee.amountMinor < 0,
+  };
+}));
 
 onLoad(async (options) => {
+  loading.value = true;
   skuId = Number(options?.skuId || 0);
   const requestedType = String(options?.orderType || "RENT");
   orderType.value = ["RENT", "BUY", "SOFTWARE"].includes(requestedType)
@@ -144,6 +181,7 @@ onLoad(async (options) => {
   selectedDuration.value = durations.some((duration) => duration.days === requestedDays) ? requestedDays : 30;
   if (!skuId) {
     uni.showToast({ title: "商品信息缺失", icon: "none" });
+    loading.value = false;
     return;
   }
   try {
@@ -151,10 +189,15 @@ onLoad(async (options) => {
     await loadPreview();
   } catch (error: any) {
     uni.showToast({ title: error.message || "订单加载失败", icon: "none" });
+  } finally {
+    loading.value = false;
   }
 });
 
 watch(selectedDuration, () => {
+  if (skuId) loadPreview();
+});
+watch([useCoupon, useLightYear], () => {
   if (skuId) loadPreview();
 });
 
@@ -171,7 +214,11 @@ function addDays(date: Date, days: number) {
 }
 
 function buildPayload(): OrderPreviewParams {
-  const payload: OrderPreviewParams = { skuId, orderType: orderType.value, address: deliveryAddress.value || undefined };
+  const payload: OrderPreviewParams = {
+    skuId,
+    orderType: orderType.value,
+    address: selectedAddress.value ? JSON.stringify(selectedAddress.value) : undefined,
+  };
   if (orderType.value === "RENT") {
     payload.rentStartDate = startDate.value;
     payload.rentEndDate = endDate.value;
@@ -194,20 +241,51 @@ function back() {
 
 function chooseAddress() {
   uni.chooseAddress({
-    success(result) {
-      recipient.value = { name: result.userName, phone: result.telNumber };
-      deliveryAddress.value = `${result.provinceName}${result.cityName}${result.countyName}${result.detailInfo}`;
-      loadPreview();
-    },
-    fail() {
-      uni.showToast({ title: "未选择配送地址", icon: "none" });
-    },
+    success: saveAddress,
+    fail: handleAddressError,
   });
+}
+
+function saveAddress(result: any) {
+  selectedAddress.value = {
+    userName: result.userName,
+    telNumber: result.telNumber,
+    provinceName: result.provinceName,
+    cityName: result.cityName,
+    countyName: result.countyName,
+    detailInfo: result.detailInfo,
+    postalCode: result.postalCode || '',
+  };
+  recipient.value = { name: result.userName, phone: result.telNumber };
+  deliveryAddress.value = `${result.provinceName}${result.cityName}${result.countyName}${result.detailInfo}`;
+  loadPreview();
+}
+
+function handleAddressError(result: any) {
+  if (String(result?.errMsg || '').includes('auth deny')) {
+    uni.showModal({
+      title: "需要地址权限",
+      content: "请在设置中允许使用通讯地址后重新选择。",
+      success(modal) {
+        if (modal.confirm) uni.openSetting({});
+      },
+    });
+    return;
+  }
+  uni.showToast({ title: "未选择配送地址", icon: "none" });
 }
 
 function configureInvoice() {
   invoiceRequested.value = !invoiceRequested.value;
   uni.showToast({ title: invoiceRequested.value ? "已选择电子普通发票" : "已取消发票", icon: "none" });
+}
+
+function toggleCoupon() {
+  useCoupon.value = !useCoupon.value;
+}
+
+function toggleLightYear() {
+  useLightYear.value = !useLightYear.value;
 }
 
 function showService(type: "delivery" | "support") {
@@ -219,6 +297,10 @@ function showService(type: "delivery" | "support") {
 
 async function pay() {
   if (!preview.value || paying.value) return;
+  if (!selectedAddress.value && orderType.value !== "SOFTWARE") {
+    uni.showToast({ title: "请先选择收货地址", icon: "none" });
+    return;
+  }
   paying.value = true;
   try {
     const key = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -228,10 +310,10 @@ async function pay() {
       provider: "wxpay",
       ...params,
       success() {
-        uni.redirectTo({ url: `/pages/order/pay-result?id=${order.id}&status=success` });
+        redirectToPage(buildPageUrl("/pages/order/pay-result", { id: order.id, status: "success" }));
       },
       fail() {
-        uni.redirectTo({ url: `/pages/order/pay-result?id=${order.id}&status=fail` });
+        redirectToPage(buildPageUrl("/pages/order/pay-result", { id: order.id, status: "fail" }));
       },
       complete() {
         paying.value = false;
@@ -258,7 +340,13 @@ async function pay() {
   padding: 0 28rpx 16rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
+}
+
+.order-title .back-button {
+  position: absolute;
+  left: 28rpx;
 }
 
 .order-title > text {
@@ -327,6 +415,7 @@ async function pay() {
 
 .order-card,
 .invoice,
+.discount-card,
 .fee-card,
 .note {
   margin: 16rpx 22rpx 0;
@@ -497,6 +586,41 @@ async function pay() {
   gap: 12rpx;
   color: #9ca3af;
   font-size: 22rpx;
+}
+
+.discount-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.discount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #111827;
+  font-size: 24rpx;
+}
+
+.discount-row view {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.discount-desc {
+  color: #9ca3af;
+  font-size: 22rpx;
+}
+
+.discount-row > text {
+  color: #9ca3af;
+  font-size: 22rpx;
+}
+
+.discount-row > text.active {
+  color: #f53f3f;
+  font-weight: 900;
 }
 
 .fee-title {

@@ -85,8 +85,8 @@ public class TmsModerationClient {
             return Map.of("suggestion", suggestion.toUpperCase());
 
         } catch (Exception e) {
-            log.error("TMS moderation failed: {}", e.getMessage(), e);
-            return Map.of("suggestion", "PASS");
+            log.error("TMS moderation failed, routing to MANUAL_REVIEW: {}", e.getMessage(), e);
+            return Map.of("suggestion", "MANUAL_REVIEW");
         }
     }
 

@@ -30,10 +30,21 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts-pie'
 
 const gmvChartRef = ref<HTMLElement>()
 const typeChartRef = ref<HTMLElement>()
+
+// ----
+// Mock data — pending real analytics API
+// ----
+// TODO(GAP-P02): Replace with real API calls when backend analytics endpoints are available.
+// Expected endpoints:
+//   GET /api/v1/admin/analytics/overview/summary?from=&to=   -> { gmvMinor, paidOrders, avgOrderMinor, activeUsers }
+//   GET /api/v1/admin/analytics/overview/gmv-trend?from=&to= -> { trend: [{date, amountMinor}] }
+//   GET /api/v1/admin/analytics/overview/type-split?from=&to= -> { types: [{name, count}] }
+// These aggregations should be computed from orders tables joined with SKU types.
+// ----
 
 const stats = ref([
   { label: '本月成交额', value: '¥6,899.00' },
@@ -42,6 +53,14 @@ const stats = ref([
   { label: '活跃用户', value: '2' },
 ])
 
+const MOCK_GMV_TREND = [120, 280, 360, 420, 0, 680, 720, 0, 960, 1100, 0, 1380, 1580, 1760, 0, 2080, 2200, 0, 2450, 2800, 0, 3200, 3600, 3899, 0, 4200, 4600, 5100, 5600, 6899]
+
+const MOCK_TYPE_SPLIT = [
+  { name: '租赁', value: 2 },
+  { name: '购买', value: 1 },
+  { name: '软件服务', value: 1 },
+]
+
 onMounted(() => {
   if (gmvChartRef.value) {
     const chart = echarts.init(gmvChartRef.value)
@@ -49,7 +68,7 @@ onMounted(() => {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: Array.from({ length: 30 }, (_, i) => `${i + 1}`) },
       yAxis: { type: 'value', name: '元' },
-      series: [{ name: '成交额', type: 'bar', data: [120, 280, 360, 420, 0, 680, 720, 0, 960, 1100, 0, 1380, 1580, 1760, 0, 2080, 2200, 0, 2450, 2800, 0, 3200, 3600, 3899, 0, 4200, 4600, 5100, 5600, 6899] }],
+      series: [{ name: '成交额', type: 'bar', data: MOCK_GMV_TREND }],
     })
     window.addEventListener('resize', () => chart.resize())
   }
@@ -60,11 +79,7 @@ onMounted(() => {
       series: [{
         type: 'pie',
         radius: '60%',
-        data: [
-          { name: '租赁', value: 2 },
-          { name: '购买', value: 1 },
-          { name: '软件服务', value: 1 },
-        ],
+        data: MOCK_TYPE_SPLIT,
       }],
     })
     window.addEventListener('resize', () => chart.resize())

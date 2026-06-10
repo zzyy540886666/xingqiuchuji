@@ -2,6 +2,7 @@ package com.xingqiu.server.asset.controller;
 
 import com.xingqiu.server.asset.domain.TrusteeshipSlot;
 import com.xingqiu.server.asset.domain.UserAsset;
+import com.xingqiu.server.asset.dto.AssetEarningsResponse;
 import com.xingqiu.server.asset.dto.TrusteeshipRequest;
 import com.xingqiu.server.asset.service.TrusteeshipService;
 import com.xingqiu.server.common.response.ApiResponse;
@@ -60,6 +61,12 @@ public class AssetController {
     public ApiResponse<Map<String, Object>> getDashboard(@PathVariable Long assetId) {
         Map<String, Object> dashboard = trusteeshipService.getAssetDashboard(currentUserId(), assetId);
         return ApiResponse.ok(dashboard);
+    }
+
+    @GetMapping("/earnings")
+    public ApiResponse<AssetEarningsResponse> getEarnings(@RequestParam(defaultValue = "7") int days) {
+        AssetEarningsResponse earnings = trusteeshipService.getUserEarnings(currentUserId(), days);
+        return ApiResponse.ok(earnings);
     }
 
     private Long currentUserId() {

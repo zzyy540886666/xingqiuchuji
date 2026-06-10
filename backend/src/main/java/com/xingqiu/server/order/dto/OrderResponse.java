@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 public class OrderResponse {
 
-    private Long id;
+    private String id;
     private String orderNo;
     private Long userId;
     private Long skuId;
@@ -23,8 +23,8 @@ public class OrderResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
     public String getOrderNo() { return orderNo; }
     public void setOrderNo(String orderNo) { this.orderNo = orderNo; }

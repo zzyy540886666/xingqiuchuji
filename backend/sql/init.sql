@@ -556,6 +556,7 @@ CREATE TABLE IF NOT EXISTS posts (
     content TEXT,
     status VARCHAR(24) DEFAULT 'AUDITING',
     like_count INT DEFAULT 0,
+    collect_count INT DEFAULT 0,
     comment_count INT DEFAULT 0,
     is_pinned TINYINT(1) DEFAULT 0,
     created_at DATETIME,
@@ -604,13 +605,43 @@ CREATE TABLE IF NOT EXISTS circle_members (
     UNIQUE KEY uk_circle_user (circle_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS post_likes (
+    id BIGINT PRIMARY KEY,
+    post_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_post_user (post_id, user_id),
+    INDEX idx_post_id (post_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS post_collects (
+    id BIGINT PRIMARY KEY,
+    post_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_post_user (post_id, user_id),
+    INDEX idx_post_id (post_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_follows (
+    id BIGINT PRIMARY KEY,
+    follower_id BIGINT NOT NULL,
+    followee_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_follower_followee (follower_id, followee_id),
+    INDEX idx_follower_id (follower_id),
+    INDEX idx_followee_id (followee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS comments (
     id BIGINT PRIMARY KEY,
     post_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     parent_id BIGINT,
     content TEXT,
-    status VARCHAR(16) DEFAULT 'VISIBLE',
+    status VARCHAR(16) DEFAULT 'ACTIVE',
     created_at DATETIME,
     INDEX idx_post_id (post_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -177,10 +177,9 @@ public class AdminCommunityController {
         long topicTotal = circleMapper.selectCount(Wrappers.lambdaQuery(Circle.class));
         long commentTotal = commentMapper.selectCount(Wrappers.lambdaQuery(Comment.class));
 
-        List<Post> hotPosts = postMapper.selectList(Wrappers.lambdaQuery(Post.class)
+        List<Post> hotPosts = postMapper.selectPage(new Page<>(1, 5), Wrappers.lambdaQuery(Post.class)
                 .eq(Post::getStatus, PostStatus.APPROVED.name())
-                .orderByDesc(Post::getLikeCount)
-                .last("LIMIT 5"));
+                .orderByDesc(Post::getLikeCount)).getRecords();
         Map<Long, User> users = usersOf(hotPosts);
         Map<Long, Circle> circles = circlesOf(hotPosts);
 

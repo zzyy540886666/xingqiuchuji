@@ -2,11 +2,10 @@
   <div class="image-uploader">
     <el-upload
       :action="uploadUrl"
-      :headers="headers"
+      :http-request="uploadRequest"
       :show-file-list="false"
       :before-upload="beforeUpload"
       :on-success="handleSuccess"
-      :on-error="handleError"
       accept="image/*"
     >
       <div v-if="modelValue" class="preview-wrapper">
@@ -24,17 +23,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/auth'
+import type { UploadRequestOptions } from 'element-plus'
+import { uploadImage } from '@/api/upload'
 
 const props = defineProps<{ modelValue?: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', url: string): void }>()
 
-const auth = useAuthStore()
 const uploadUrl = '/api/v1/admin/upload/image'
-const headers = computed(() => ({ Authorization: `Bearer ${auth.token}` }))
 
 function beforeUpload(file: File) {
   const isImage = file.type.startsWith('image/')
@@ -50,6 +47,15 @@ function beforeUpload(file: File) {
   return true
 }
 
+async function uploadRequest(options: UploadRequestOptions) {
+  try {
+    const response = await uploadImage(options.file)
+    options.onSuccess(response)
+  } catch (error) {
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+  }
+}
+
 function handleSuccess(response: any) {
   if (response.success && response.data?.url) {
     emit('update:modelValue', response.data.url)
@@ -59,9 +65,6 @@ function handleSuccess(response: any) {
   }
 }
 
-function handleError() {
-  ElMessage.error('上传失败，请重试')
-}
 </script>
 
 <style scoped>

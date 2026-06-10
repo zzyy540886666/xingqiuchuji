@@ -4,9 +4,12 @@ import { request } from "../utils/request";
 
 export interface Banner {
   id: number;
+  position?: "HOME_RENT_CARD" | "HOME_BUY_CARD" | "HOME_APP_CARD" | string;
   imageUrl: string;
   linkUrl: string;
   title: string;
+  status?: "ACTIVE" | "INACTIVE" | string;
+  sortOrder?: number;
 }
 
 export interface Activity {
@@ -29,6 +32,7 @@ export interface AppConfig {
   banners?: Banner[];
   activities?: Activity[];
   sceneTags?: Record<string, string[]>;
+  trusteeshipDailyRateMinor?: number;
   commissionEnabled?: boolean;
 }
 

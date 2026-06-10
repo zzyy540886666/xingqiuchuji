@@ -11,7 +11,11 @@
       "Bash(curl -s \"http://localhost:8080/api/v1/config/app\" && sleep 2 && grep -A5 \"Unhandled exception\" /tmp/xq-boot3.log | tail -10)",
       "Read(//tmp/**)",
       "Bash(./mvnw compile *)",
-      "Bash(tasklist.exe)"
+      "Bash(tasklist.exe)",
+      "Bash(cd \"/d/Pro/星球出机小程序 - 副本\" && grep -rn \"uni.getWindowInfo\\(\\)\" frontend/src --include=\"*.vue\" --include=\"*.ts\" -l)",
+      "Read(//d/d/Pro/星球出机小程序 - 副本/frontend/**)",
+      "Bash(rg -l \"bottom-nav\\\\|BottomNav\" --type-add 'wxml:*.wxml' --type wxml .)",
+      "Bash(grep -rl \"bottom-nav\\\\|BottomNav\" .)"
     ]
   }
 }

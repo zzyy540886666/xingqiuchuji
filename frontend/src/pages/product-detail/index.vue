@@ -1,5 +1,5 @@
 <template>
-  <view class="page detail-page">
+  <view class="page detail-page safe-bottom">
     <view class="detail-nav">
       <view class="nav-left">
         <view class="back-button translucent" @tap="back"><image class="back-icon" src="/static/icons/back-light.svg" mode="aspectFit" /></view>
@@ -14,9 +14,14 @@
       </view>
     </view>
 
+    <template v-if="pageLoading">
+      <Skeleton variant="product-detail" />
+    </template>
+    <template v-else>
+
     <swiper class="product-swiper" circular @change="onSwiperChange">
       <swiper-item v-for="image in productImages" :key="image">
-        <image class="product-hero" :src="image" mode="aspectFill" />
+        <image class="product-hero" :src="image" mode="aspectFit" />
       </swiper-item>
     </swiper>
     <view v-if="videoUrl" class="play-button" @tap="previewVideo"><image class="play-icon" src="/static/icons/play.svg" mode="aspectFit" /></view>
@@ -105,10 +110,11 @@
         <view class="mini-action" @tap="shareProduct"><text>分享</text></view>
       </view>
       <view class="buy-actions">
-        <view class="primary-pill" @tap="goOrder">{{ currentPlan?.key === "BUY" ? "立即购买" : "立即租赁" }}</view>
+        <view class="primary-pill" @tap="goOrder">{{ buyButtonText }}</view>
         <view class="outline-pill" @tap="addCart">加入购物车</view>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
@@ -119,6 +125,9 @@ import { formatPriceCompact } from "../../utils/format";
 import { getSkuDetail } from "../../services/catalog";
 import type { SkuItem } from "../../services/catalog";
 import { useCartStore } from "../../stores/cart";
+import Skeleton from "../../components/PageSkeleton.vue";
+import { navigateToPage } from "../../utils/navigation";
+import { buildPageUrl } from "../../utils/query";
 
 const cartStore = useCartStore();
 const product = ref<SkuItem | null>(null);
@@ -130,6 +139,7 @@ const isFavorite = ref(false);
 const expandedSection = ref("");
 const params = ref<{ label: string; value: string }[]>([]);
 const detailSections = ref<{ title: string; content: string }[]>([]);
+const pageLoading = ref(true);
 
 const videoUrl = computed(() => product.value?.mediaItems?.find((item) => item.type === "VIDEO")?.url || "");
 const pricePlans = computed(() => (product.value?.prices || []).map((price) => ({
@@ -141,6 +151,13 @@ const pricePlans = computed(() => (product.value?.prices || []).map((price) => (
   maxDuration: price.maxDuration,
 })));
 const currentPlan = computed(() => pricePlans.value.find((item) => item.key === selectedPlan.value) || pricePlans.value[0]);
+const softwareTypes = ["SUBSCRIPTION", "SOFTWARE", "LICENSE", "AUTHORIZATION"] as readonly string[];
+const buyButtonText = computed(() => {
+  const key = currentPlan.value?.key;
+  if (key === "BUY") return "立即购买";
+  if (key && softwareTypes.includes(key)) return "立即获取";
+  return "立即租赁";
+});
 const durations = computed(() => {
   const plan = currentPlan.value;
   if (!plan || plan.key !== "DAILY_RENT") return [];
@@ -152,6 +169,7 @@ onLoad((query) => loadDetail(Number(query?.id || 0)));
 
 async function loadDetail(skuId: number) {
   if (!skuId) return;
+  pageLoading.value = true;
   try {
     const detail = await getSkuDetail(skuId);
     product.value = detail;
@@ -164,6 +182,8 @@ async function loadDetail(skuId: number) {
     isFavorite.value = Boolean(uni.getStorageSync(`xq_favorite_sku_${detail.id}`));
   } catch {
     uni.showToast({ title: "加载失败", icon: "none" });
+  } finally {
+    pageLoading.value = false;
   }
 }
 
@@ -175,9 +195,17 @@ function toggleSection(title: string) { expandedSection.value = expandedSection.
 function back() { uni.navigateBack({ delta: 1 }); }
 function goOrder() {
   if (!product.value) return;
-  const orderType = currentPlan.value?.key === "BUY" ? "BUY" : "RENT";
-  const rentDays = Number.parseInt(selectedDuration.value, 10) || undefined;
-  uni.navigateTo({ url: `/pages/order/confirm?skuId=${product.value.id}&orderType=${orderType}&rentDays=${rentDays || ""}` });
+  const key = currentPlan.value?.key;
+  let orderType: string;
+  if (key === "BUY") {
+    orderType = "BUY";
+  } else if (key && softwareTypes.includes(key)) {
+    orderType = "SOFTWARE";
+  } else {
+    orderType = "RENT";
+  }
+  const rentDays = orderType === "RENT" ? (Number.parseInt(selectedDuration.value, 10) || undefined) : undefined;
+  navigateToPage(buildPageUrl("/pages/order/confirm", { skuId: product.value.id, orderType, rentDays }));
 }
 function addCart() {
   if (!product.value) return;
@@ -190,7 +218,7 @@ function toggleFavorite() {
   if (isFavorite.value) uni.setStorageSync(key, "1"); else uni.removeStorageSync(key);
   uni.showToast({ title: isFavorite.value ? "已收藏" : "已取消收藏", icon: "none" });
 }
-function contactService() { uni.navigateTo({ url: "/pages/im/chat?id=customer-service" }); }
+function contactService() { navigateToPage("/pages/im/chat?id=customer-service"); }
 function previewVideo() {
   if (videoUrl.value) uni.previewMedia({ sources: [{ url: videoUrl.value, type: "video" }] });
 }
@@ -201,7 +229,7 @@ function shareProduct() {
 function showProductActions() {
   uni.showActionSheet({ itemList: ["联系客服", "查看同类商品"], success: (result) => {
     if (result.tapIndex === 0) contactService();
-    if (result.tapIndex === 1) uni.navigateTo({ url: `/pages/category/index?keyword=${encodeURIComponent(product.value?.brand || "")}` });
+    if (result.tapIndex === 1) navigateToPage(`/pages/category/index?keyword=${encodeURIComponent(product.value?.brand || "")}`);
   } });
 }
 function showAllParams() {
@@ -220,7 +248,7 @@ function showAllParams() {
 .nav-tools { gap: 18rpx; }
 .round-tool { width: 58rpx; height: 58rpx; border-radius: 50%; background: rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center; }
 .tool-icon { width: 30rpx; height: 30rpx; display: block; }
-.product-swiper { height: 580rpx; background: #e5e7eb; }
+.product-swiper { height: 580rpx; background: #f6f8fa; }
 .product-hero { width: 100%; height: 100%; }
 .play-button { position: absolute; top: 470rpx; left: 34rpx; width: 64rpx; height: 64rpx; border-radius: 50%; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: center; }
 .play-icon { width: 34rpx; height: 34rpx; display: block; margin-left: 4rpx; }

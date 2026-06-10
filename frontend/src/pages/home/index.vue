@@ -1,16 +1,18 @@
 <template>
   <view class="page safe-bottom">
-    <view class="header">
-      <StatusBar />
+    <view class="header" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="title-bar">
         <view class="brand">
-          <image class="brand-logo" src="/static/icons/app-logo.svg" mode="aspectFit" />
-          <view>
-            <text class="title">星球·出机</text>
-            <text class="sub-title">机器人租赁、购买、软件服务平台</text>
+          <image class="brand-logo" src="/static/icons/planet-logo.svg" mode="aspectFit" />
+          <view class="brand-text">
+            <view class="title-wrapper">
+              <text class="title-text">星球</text>
+              <text class="title-dot">·</text>
+              <text class="title-text">出机</text>
+            </view>
+            <text class="sub-title">机器人租赁·购买·软件服务平台</text>
           </view>
         </view>
-        <MiniCapsule />
       </view>
       <view class="home-search">
         <view class="search-bar" @tap="go('/pages/search/index')">
@@ -21,125 +23,195 @@
       </view>
     </view>
 
-    <view class="hero-shell">
-      <view class="hero" @tap="openActivity">
-        <image class="hero-image" :src="heroActivity?.coverUrl || '/static/images/robot-humanoid.png'" mode="aspectFill" />
-        <view class="hero-mask"></view>
-        <view class="hero-content">
-          <text class="hero-maker">{{ heroActivity?.tag || "精选活动" }}</text>
-          <text class="hero-title">{{ heroActivity?.title || "机器人场景服务" }}</text>
-          <text class="hero-desc">{{ heroActivity?.subtitle || "租赁 / 购买 / 软件 · 一站式机器人服务平台" }}</text>
-          <view class="hero-cta">查看活动详情</view>
-        </view>
-      </view>
+    <template v-if="loading">
+      <Skeleton variant="home" />
+    </template>
+    <template v-else>
 
-      <view class="quick-grid">
-        <view class="quick-card rent" @tap="goCategory('RENT')">
-          <text class="quick-title">租机器人</text><text class="quick-desc">灵活租赁\n按需使用</text>
-          <image class="quick-img" src="/static/images/robot-dog.png" mode="aspectFill" />
-        </view>
-        <view class="quick-card buy" @tap="goCategory('BUY')">
-          <text class="quick-title">买机器人</text><text class="quick-desc">品质保障\n快速交付</text>
-          <image class="quick-img" src="/static/images/robot-humanoid.png" mode="aspectFill" />
-        </view>
-        <view class="quick-card app" @tap="goCategory('SOFTWARE')">
-          <text class="quick-title">应用商店</text><text class="quick-desc">场景软件\n定制开发</text>
-          <image class="quick-img" src="/static/images/hero-robot.jpg" mode="aspectFill" />
-        </view>
-      </view>
-    </view>
-
-    <view class="section">
-      <view class="section-title-row">
-        <text class="section-title">场景应用</text>
-        <text class="section-more" @tap="goCategory('RENT')">更多场景</text>
-      </view>
-      <scroll-view scroll-x class="scene-scroll" show-scrollbar="false">
-        <view class="scene-track">
-          <view v-for="scene in scenes" :key="scene.id" class="scene-card" @tap="openScene(scene.name)">
-            <image class="scene-img" :src="scene.imageUrl" mode="aspectFill" />
-            <text class="scene-title">{{ scene.name }}</text>
-            <view class="scene-tags"><text v-for="tag in scene.tags" :key="tag" class="tag">{{ tag }}</text></view>
+      <view class="hero-shell">
+        <swiper v-if="activities.length" class="hero-carousel" circular autoplay :interval="4500" :duration="350" indicator-dots>
+          <swiper-item v-for="activity in activities" :key="activity.id">
+            <view class="hero" @tap="openActivity(activity)">
+              <image v-if="activity.coverUrl" class="hero-image" :src="activity.coverUrl" mode="aspectFill" />
+              <view class="hero-mask"></view>
+              <view class="hero-content">
+                <text class="hero-maker">{{ activity.tag || "精选活动" }}</text>
+                <text class="hero-title">{{ activity.title || "机器人场景服务" }}</text>
+                <text class="hero-desc">{{ activity.subtitle || "租赁 / 购买 / 软件 · 一站式机器人服务平台" }}</text>
+                <view class="hero-cta">查看活动详情</view>
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
+        <view v-else class="hero">
+          <view class="hero-mask"></view>
+          <view class="hero-content">
+            <text class="hero-maker">精选活动</text>
+            <text class="hero-title">机器人场景服务</text>
+            <text class="hero-desc">租赁 / 购买 / 软件 · 一站式机器人服务平台</text>
           </view>
         </view>
-      </scroll-view>
-    </view>
 
-    <view class="section recommend-section">
-      <view class="section-title-row">
-        <view class="recommend-title">
-          <text class="section-title">为你推荐</text>
-          <view class="segment">
-            <text :class="{ active: activeTab === 'rent' }" @tap="activeTab = 'rent'">可租赁</text>
-            <text :class="{ active: activeTab === 'buy' }" @tap="activeTab = 'buy'">可购买</text>
+        <view class="quick-grid">
+          <view class="quick-card rent" @tap="openQuickCard('HOME_RENT_CARD', 'RENT')">
+            <text class="quick-title">{{ operationAt("HOME_RENT_CARD")?.title || "租机器人" }}</text><text class="quick-desc">灵活租赁\n按需使用</text>
+            <image v-if="operationAt('HOME_RENT_CARD')?.imageUrl" class="quick-img" :src="operationAt('HOME_RENT_CARD')?.imageUrl" mode="aspectFill" />
+          </view>
+          <view class="quick-card buy" @tap="openQuickCard('HOME_BUY_CARD', 'BUY')">
+            <text class="quick-title">{{ operationAt("HOME_BUY_CARD")?.title || "买机器人" }}</text><text class="quick-desc">品质保障\n快速交付</text>
+            <image v-if="operationAt('HOME_BUY_CARD')?.imageUrl" class="quick-img" :src="operationAt('HOME_BUY_CARD')?.imageUrl" mode="aspectFill" />
+          </view>
+          <view class="quick-card app" @tap="openQuickCard('HOME_APP_CARD', 'SOFTWARE')">
+            <text class="quick-title">{{ operationAt("HOME_APP_CARD")?.title || "应用商店" }}</text><text class="quick-desc">场景软件\n定制开发</text>
+            <image v-if="operationAt('HOME_APP_CARD')?.imageUrl" class="quick-img" :src="operationAt('HOME_APP_CARD')?.imageUrl" mode="aspectFill" />
           </view>
         </view>
-        <text class="section-more" @tap="goCategory(activeTab === 'rent' ? 'RENT' : 'BUY')">更多推荐</text>
       </view>
-      <view class="product-grid">
-        <ProductCard v-for="product in recommendProducts" :key="product.id" :product="product" />
+
+      <view class="section">
+        <view class="section-title-row">
+          <text class="section-title">场景应用</text>
+          <text class="section-more" @tap="goCategory('RENT')">更多场景</text>
+        </view>
+        <scroll-view scroll-x class="scene-scroll" show-scrollbar="false">
+          <view class="scene-track">
+            <view v-for="scene in scenes" :key="scene.id" class="scene-card" @tap="openScene(scene.name)">
+              <image v-if="scene.imageUrl" class="scene-img" :src="scene.imageUrl" mode="aspectFill" />
+              <view v-else class="scene-img scene-img--empty"></view>
+              <text class="scene-title">{{ scene.name }}</text>
+              <view class="scene-tags"><text v-for="tag in scene.tags" :key="tag" class="tag">{{ tag }}</text></view>
+            </view>
+          </view>
+        </scroll-view>
       </view>
-    </view>
-    <BottomNav current="home" />
+
+      <view class="section recommend-section">
+        <view class="section-title-row">
+          <view class="recommend-title">
+            <text class="section-title">为你推荐</text>
+            <view class="segment">
+              <text :class="{ active: activeTab === 'rent' }" @tap="activeTab = 'rent'">可租赁</text>
+              <text :class="{ active: activeTab === 'buy' }" @tap="activeTab = 'buy'">可购买</text>
+            </view>
+          </view>
+          <text class="section-more" @tap="goCategory(activeTab === 'rent' ? 'RENT' : 'BUY')">更多推荐</text>
+        </view>
+        <view class="product-grid">
+          <view v-for="product in recommendProducts" :key="product.id" class="product-grid__item">
+            <ProductCard :product="product" />
+          </view>
+        </view>
+      </view>
+    </template>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import BottomNav from "../../components/BottomNav.vue";
-import MiniCapsule from "../../components/MiniCapsule.vue";
+import { onPullDownRefresh } from "@dcloudio/uni-app";
 import ProductCard from "../../components/ProductCard.vue";
-import StatusBar from "../../components/StatusBar.vue";
+import Skeleton from "../../components/PageSkeleton.vue";
 import { getActivities } from "../../services/activity";
 import type { ActivityDetail } from "../../services/activity";
 import { getScenes, getSkuList } from "../../services/catalog";
 import type { SceneItem, SkuItem } from "../../services/catalog";
 import { useConfigStore } from "../../stores/config";
+import type { Banner } from "../../stores/config";
+import { createLatestTask } from "../../utils/latestTask";
+import { navigateToPage } from "../../utils/navigation";
 
 const configStore = useConfigStore();
+type HomeCardPosition = "HOME_RENT_CARD" | "HOME_BUY_CARD" | "HOME_APP_CARD";
 const activeTab = ref("rent");
+const loading = ref(true);
 const activities = ref<ActivityDetail[]>([]);
 const scenes = ref<(SceneItem & { tags?: string[] })[]>([]);
 const products = ref<SkuItem[]>([]);
-const heroActivity = computed(() => activities.value[0]);
 const recommendProducts = computed(() => products.value.slice(0, 3));
+const statusBarHeight = ref(0);
+const productRequestId = createLatestTask();
+
+// 获取状态栏高度
+onMounted(() => {
+  const systemInfo = uni.getWindowInfo();
+  statusBarHeight.value = systemInfo.statusBarHeight || 0;
+});
 
 async function loadProducts() {
   const type = activeTab.value === "rent" ? "RENT" : "BUY";
+  const requestId = productRequestId.begin();
   try {
-    products.value = (await getSkuList({ type, pageSize: 6 })).items;
+    const result = await getSkuList({ type, recommended: true, pageSize: 6 });
+    if (productRequestId.isCurrent(requestId)) products.value = result.items;
   } catch {
-    products.value = [];
+    if (productRequestId.isCurrent(requestId)) products.value = [];
+  }
+}
+
+async function loadHome(showSkeleton = false) {
+  if (showSkeleton) loading.value = true;
+  try {
+    const [activityResult, sceneResult] = await Promise.allSettled([getActivities(), getScenes()]);
+    if (activityResult.status === "fulfilled") activities.value = activityResult.value;
+    if (sceneResult.status === "fulfilled") {
+      scenes.value = sceneResult.value.map((scene) => ({
+        ...scene,
+        tags: scene.tags || configStore.config.sceneTags?.[String(scene.id)] || [],
+      }));
+    }
+    await loadProducts();
+  } finally {
+    if (showSkeleton) loading.value = false;
   }
 }
 
 onMounted(async () => {
-  const [activityResult, sceneResult] = await Promise.allSettled([getActivities(), getScenes()]);
-  if (activityResult.status === "fulfilled") activities.value = activityResult.value;
-  if (sceneResult.status === "fulfilled") {
-    scenes.value = sceneResult.value.map((scene) => ({ ...scene, tags: configStore.config.sceneTags?.[String(scene.id)] || [] }));
+  await loadHome(true);
+});
+
+onPullDownRefresh(async () => {
+  try {
+    await loadHome();
+  } finally {
+    uni.stopPullDownRefresh();
   }
-  await loadProducts();
 });
 watch(activeTab, loadProducts);
 
-function go(url: string) { uni.navigateTo({ url }); }
-function goCategory(type: "RENT" | "BUY" | "SOFTWARE") { uni.navigateTo({ url: `/pages/category/index?type=${type}` }); }
-function openScene(name: string) { uni.navigateTo({ url: `/pages/category/index?keyword=${encodeURIComponent(name)}` }); }
-function openActivity() {
-  if (heroActivity.value) uni.navigateTo({ url: `/pages/activity-detail/index?id=${heroActivity.value.id}` });
+function go(url: string) { navigateToPage(url); }
+function goCategory(type: "RENT" | "BUY" | "SOFTWARE") { navigateToPage(`/pages/category/index?type=${type}`); }
+function operationAt(position: HomeCardPosition): Banner | undefined {
+  return (configStore.config.banners || [])
+    .filter((item) => item.position === position && (!item.status || item.status === "ACTIVE"))
+    .sort((left, right) => (left.sortOrder || 0) - (right.sortOrder || 0))[0];
+}
+function openQuickCard(position: HomeCardPosition, fallbackType: "RENT" | "BUY" | "SOFTWARE") {
+  const targetUrl = operationAt(position)?.linkUrl;
+  if (targetUrl) {
+    go(targetUrl);
+    return;
+  }
+  goCategory(fallbackType);
+}
+function openScene(name: string) { navigateToPage(`/pages/category/index?keyword=${encodeURIComponent(name)}`); }
+function openActivity(activity: ActivityDetail) {
+  navigateToPage(`/pages/activity-detail/index?id=${activity.id}`);
 }
 </script>
 
 <style scoped lang="scss">
-.brand { display: flex; align-items: center; gap: 18rpx; }
-.brand-logo { width: 68rpx; height: 68rpx; display: block; }
-.title, .sub-title { display: block; }
-.title { color: #111827; font-size: 32rpx; font-weight: 700; }
-.sub-title { color: #6b7280; font-size: 21rpx; }
+.brand { display: flex; align-items: center; gap: 16rpx; }
+.brand-logo { width: 76rpx; height: 76rpx; display: block; }
+.brand-text { display: flex; flex-direction: column; justify-content: center; }
+.title-wrapper { display: flex; align-items: center; margin-bottom: 6rpx; }
+.title-text { color: #000000; font-size: 38rpx; font-weight: 800; letter-spacing: 2rpx; line-height: 1; }
+.title-dot { color: #E60000; font-size: 40rpx; font-weight: 900; margin: 0 4rpx; line-height: 1; display: flex; align-items: center; transform: translateY(-2rpx); }
+.sub-title { display: block; color: #8C9EB5; font-size: 20rpx; font-weight: 500; letter-spacing: 1rpx; line-height: 1; }
 .home-search { padding: 12rpx 28rpx 22rpx; }
 .hero-shell { background: #fff; padding: 0 28rpx 28rpx; border-radius: 0 0 32rpx 32rpx; }
+.hero-carousel { height: 420rpx; }
 .hero { height: 420rpx; border-radius: 32rpx; overflow: hidden; position: relative; background: #111827; }
+.hero-carousel .hero { height: 100%; }
 .hero-image, .hero-mask { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-image { opacity: .72; }
 .hero-mask { background: linear-gradient(90deg, rgba(0,0,0,.72), transparent); }
@@ -165,6 +237,7 @@ function openActivity() {
 .scene-track { gap: 16rpx; }
 .scene-card { width: 242rpx; flex-shrink: 0; }
 .scene-img { display: block; width: 242rpx; height: 160rpx; border-radius: 16rpx; }
+.scene-img--empty { background: linear-gradient(135deg, #eef4ff, #f8fafc); }
 .scene-title { display: block; margin-top: 12rpx; font-size: 25rpx; font-weight: 600; }
 .scene-tags { gap: 8rpx; margin-top: 9rpx; }
 .tag { color: #2563eb; background: #eff6ff; padding: 4rpx 9rpx; border-radius: 5rpx; font-size: 20rpx; }
@@ -172,5 +245,14 @@ function openActivity() {
 .segment { background: #f3f4f6; border-radius: 28rpx; padding: 4rpx; }
 .segment text { padding: 8rpx 18rpx; font-size: 22rpx; color: #6b7280; }
 .segment .active { color: #0a4bfe; background: #fff; border-radius: 22rpx; }
-.product-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18rpx; }
+.product-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18rpx;
+}
+
+.product-grid__item {
+  width: calc((100% - 18rpx) / 2);
+  min-width: 0;
+}
 </style>

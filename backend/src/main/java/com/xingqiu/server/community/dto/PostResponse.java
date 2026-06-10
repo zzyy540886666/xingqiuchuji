@@ -13,14 +13,18 @@ public class PostResponse {
     private String content;
     private String status;
     private Integer likeCount;
+    private Integer collectCount;
     private Integer commentCount;
     private Boolean isPinned;
+    private Boolean liked;
+    private Boolean collected;
     private LocalDateTime createdAt;
 
     private String authorNickname;
     private String authorAvatar;
 
     private List<MediaItem> mediaList;
+    private List<CommentResponse> comments;
 
     public static class MediaItem {
         private Long id;
@@ -54,10 +58,16 @@ public class PostResponse {
     public void setStatus(String status) { this.status = status; }
     public Integer getLikeCount() { return likeCount; }
     public void setLikeCount(Integer likeCount) { this.likeCount = likeCount; }
+    public Integer getCollectCount() { return collectCount; }
+    public void setCollectCount(Integer collectCount) { this.collectCount = collectCount; }
     public Integer getCommentCount() { return commentCount; }
     public void setCommentCount(Integer commentCount) { this.commentCount = commentCount; }
     public Boolean getIsPinned() { return isPinned; }
     public void setIsPinned(Boolean isPinned) { this.isPinned = isPinned; }
+    public Boolean getLiked() { return liked; }
+    public void setLiked(Boolean liked) { this.liked = liked; }
+    public Boolean getCollected() { return collected; }
+    public void setCollected(Boolean collected) { this.collected = collected; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public String getAuthorNickname() { return authorNickname; }
@@ -66,4 +76,6 @@ public class PostResponse {
     public void setAuthorAvatar(String authorAvatar) { this.authorAvatar = authorAvatar; }
     public List<MediaItem> getMediaList() { return mediaList; }
     public void setMediaList(List<MediaItem> mediaList) { this.mediaList = mediaList; }
+    public List<CommentResponse> getComments() { return comments; }
+    public void setComments(List<CommentResponse> comments) { this.comments = comments; }
 }

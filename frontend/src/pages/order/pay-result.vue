@@ -17,6 +17,8 @@
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { getOrderDetail } from "../../services/order";
+import { reLaunchToPage, redirectToPage } from "../../utils/navigation";
+import { buildPageUrl } from "../../utils/query";
 
 const isSuccess = ref(false);
 const checking = ref(false);
@@ -54,9 +56,9 @@ onLoad(async (options) => {
   checking.value = false;
 });
 
-function goOrderDetail() { uni.redirectTo({ url: `/pages/order/detail?id=${orderId}` }); }
-function retryPay() { uni.redirectTo({ url: `/pages/order/detail?id=${orderId}&action=pay` }); }
-function goHome() { uni.reLaunch({ url: "/pages/home/index" }); }
+function goOrderDetail() { redirectToPage(buildPageUrl("/pages/order/detail", { id: orderId })); }
+function retryPay() { redirectToPage(buildPageUrl("/pages/order/detail", { id: orderId, action: "pay" })); }
+function goHome() { reLaunchToPage("/pages/home/index"); }
 </script>
 
 <style scoped lang="scss">

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xingqiu.server.appconfig.service.CatalogPlacementService;
 import com.xingqiu.server.catalog.domain.Sku;
 import com.xingqiu.server.catalog.domain.Brand;
 import com.xingqiu.server.catalog.domain.Sku.SkuStatus;
@@ -47,6 +48,7 @@ public class SkuService {
     private final SkuServiceItemMapper skuServiceItemMapper;
     private final SkuDetailSectionMapper skuDetailSectionMapper;
     private final ObjectMapper objectMapper;
+    private final CatalogPlacementService catalogPlacementService;
 
     public SkuService(SkuMapper skuMapper,
                       BrandMapper brandMapper,
@@ -55,7 +57,8 @@ public class SkuService {
                       SkuTagMapper skuTagMapper,
                       SkuServiceItemMapper skuServiceItemMapper,
                       SkuDetailSectionMapper skuDetailSectionMapper,
-                      ObjectMapper objectMapper) {
+                      ObjectMapper objectMapper,
+                      CatalogPlacementService catalogPlacementService) {
         this.skuMapper = skuMapper;
         this.brandMapper = brandMapper;
         this.skuMediaService = skuMediaService;
@@ -64,9 +67,10 @@ public class SkuService {
         this.skuServiceItemMapper = skuServiceItemMapper;
         this.skuDetailSectionMapper = skuDetailSectionMapper;
         this.objectMapper = objectMapper;
+        this.catalogPlacementService = catalogPlacementService;
     }
 
-    @Cacheable(value = "skus", key = "'list_' + #request.type + '_' + #request.brandId + '_' + #request.minPrice + '_' + #request.maxPrice + '_' + #request.modelId + '_' + #request.q + '_' + #request.page + '_' + #request.pageSize")
+    @Cacheable(value = "skus", key = "'list_' + #request.type + '_' + #request.brandId + '_' + #request.minPrice + '_' + #request.maxPrice + '_' + #request.modelId + '_' + #request.q + '_' + #request.recommended + '_' + #request.page + '_' + #request.pageSize")
     public PageResult<SkuDetailResponse> list(SkuListRequest request) {
         LambdaQueryWrapper<Sku> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Sku::getStatus, SkuStatus.ONLINE);
@@ -85,6 +89,14 @@ public class SkuService {
 
         if (request.getModelId() != null) {
             wrapper.eq(Sku::getModelId, request.getModelId());
+        }
+
+        if (Boolean.TRUE.equals(request.getRecommended())) {
+            Set<Long> recommendedIds = catalogPlacementService.getRecommendedSkuIds();
+            if (recommendedIds.isEmpty()) {
+                return PageResult.of(List.of(), 0L, request.getPage(), request.getPageSize());
+            }
+            wrapper.in(Sku::getId, recommendedIds);
         }
 
         if (request.getMinPrice() != null || request.getMaxPrice() != null) {

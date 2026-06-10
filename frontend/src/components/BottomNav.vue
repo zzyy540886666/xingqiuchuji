@@ -14,17 +14,19 @@
 </template>
 
 <script setup lang="ts">
+import { navigateToPage } from "../utils/navigation";
+
 defineProps<{ current: "home" | "category" | "community" | "profile" }>();
 
 const items = [
-  { key: "home", label: "首页", path: "/pages/home/index", icon: "/static/tabbar/home.png", activeIcon: "/static/tabbar/home-active.png" },
-  { key: "category", label: "分类", path: "/pages/category/index", icon: "/static/tabbar/category.png", activeIcon: "/static/tabbar/category-active.png" },
-  { key: "community", label: "社区", path: "/pages/community/index", icon: "/static/tabbar/community.png", activeIcon: "/static/tabbar/community-active.png" },
-  { key: "profile", label: "我的", path: "/pages/profile/index", icon: "/static/tabbar/profile.png", activeIcon: "/static/tabbar/profile-active.png" },
+  { key: "home", label: "首页", path: "/pages/home/index", icon: "/static/tabbar/home_v2.png", activeIcon: "/static/tabbar/home_v2_active.png" },
+  { key: "category", label: "分类", path: "/pages/category/index", icon: "/static/tabbar/category_v2.png", activeIcon: "/static/tabbar/category_v2_active.png" },
+  { key: "community", label: "社区", path: "/pages/community/index", icon: "/static/tabbar/community_v2.png", activeIcon: "/static/tabbar/community_v2_active.png" },
+  { key: "profile", label: "我的", path: "/pages/profile/index", icon: "/static/tabbar/profile_v2.png", activeIcon: "/static/tabbar/profile_v2_active.png" },
 ] as const;
 
 function go(url: string) {
-  uni.reLaunch({ url });
+  navigateToPage(url, { reason: "bottom_nav" });
 }
 </script>
 

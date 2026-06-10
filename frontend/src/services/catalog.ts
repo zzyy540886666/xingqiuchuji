@@ -1,4 +1,5 @@
 import { request } from "../utils/request";
+import { buildQuery } from "../utils/query";
 
 export interface SkuListParams {
   type?: "RENT" | "BUY" | "SOFTWARE";
@@ -9,6 +10,7 @@ export interface SkuListParams {
   keyword?: string;
   page?: number;
   pageSize?: number;
+  recommended?: boolean;
 }
 
 export interface SkuPrice {
@@ -74,19 +76,22 @@ export interface SceneItem {
   description?: string;
   imageUrl: string;
   sortOrder: number;
+  tags?: string[];
 }
 
 export function getSkuList(params: SkuListParams): Promise<PageResult<SkuItem>> {
-  const query = new URLSearchParams();
-  if (params.type) query.set("type", params.type);
-  if (params.brandId) query.set("brandId", params.brandId);
-  if (params.modelId) query.set("modelId", params.modelId);
-  if (params.minPrice != null) query.set("minPrice", String(params.minPrice));
-  if (params.maxPrice != null) query.set("maxPrice", String(params.maxPrice));
-  if (params.keyword) query.set("q", params.keyword);
-  if (params.page) query.set("page", String(params.page));
-  if (params.pageSize) query.set("pageSize", String(params.pageSize));
-  return request<PageResult<SkuItem>>(`/catalog/skus?${query.toString()}`);
+  const query = buildQuery({
+    type: params.type,
+    brandId: params.brandId,
+    modelId: params.modelId,
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    q: params.keyword,
+    page: params.page,
+    pageSize: params.pageSize,
+    recommended: params.recommended,
+  });
+  return request<PageResult<SkuItem>>(`/catalog/skus${query ? `?${query}` : ""}`);
 }
 
 export function getSkuDetail(skuId: number): Promise<SkuItem> {
