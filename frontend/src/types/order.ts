@@ -16,10 +16,11 @@ export interface Order {
 export type OrderStatus =
   | "PENDING_PAY"
   | "PAID"
-  | "IN_SERVICE"
-  | "COMPLETED"
   | "CANCELLED"
-  | "REFUNDING";
+  | "FULFILLING"
+  | "COMPLETED"
+  | "REFUNDING"
+  | "REFUNDED";
 
 export type OrderType = "RENT" | "BUY" | "SOFTWARE";
 

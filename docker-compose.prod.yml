@@ -1,10 +1,4 @@
-# ============================================
-# 星球出机 - 生产环境 Docker Compose
-# 生成日期: 2026-06-08
-# 用途: 在服务器上 docker compose up -d 一键启动
-# ============================================
-
-services:
+﻿services:
   mysql:
     image: mysql:8.0
     container_name: xq-mysql
@@ -23,7 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -39,7 +32,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 10s
 
   backend:
     image: xingqiu-backend:prod
@@ -79,18 +71,10 @@ services:
     networks:
       - internal
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/admin/auth/me"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   admin-web:
     image: xingqiu-admin-web:prod
     container_name: xq-admin-web
-    depends_on:
-      - backend
     ports:
       - "127.0.0.1:5137:80"
     networks:

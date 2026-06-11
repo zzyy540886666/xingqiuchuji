@@ -50,3 +50,5 @@ project.private.config.json
 outputs/
 figma-*.png
 uploads/
+deploy/*.tar
+deploy/certs/

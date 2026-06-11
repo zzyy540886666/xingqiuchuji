@@ -28,14 +28,14 @@ public class MemberService {
     private static final Logger log = LoggerFactory.getLogger(MemberService.class);
 
     /** 等级升级阈值（单位：分，硬编码兜底）:
-     *  L0: < 10000  (即累计消费 < 100 元)
-     *  L1: >= 10000 (累计消费 >= 100 元)
-     *  L2: >= 50000 (累计消费 >= 500 元)
-     *  L3: >= 200000 (累计消费 >= 2000 元)
+     *  L0: 注册默认等级
+     *  L1: 首单或 99 元年卡
+     *  L2: >= 500000 (累计消费 >= 5000 元)
+     *  L3: >= 2000000 (累计消费 >= 20000 元)
      */
-    private static final long DEFAULT_L1_THRESHOLD_CENTS = 10_000L;
-    private static final long DEFAULT_L2_THRESHOLD_CENTS = 50_000L;
-    private static final long DEFAULT_L3_THRESHOLD_CENTS = 200_000L;
+    private static final long DEFAULT_L1_THRESHOLD_MINOR = 9_900L;
+    private static final long DEFAULT_L2_THRESHOLD_MINOR = 500_000L;
+    private static final long DEFAULT_L3_THRESHOLD_MINOR = 2_000_000L;
 
     private final MembershipMapper membershipMapper;
     private final MembershipBenefitGrantMapper benefitGrantMapper;
@@ -190,9 +190,15 @@ public class MemberService {
         int oldLevel = membership.getLevel();
         boolean wasNative = Boolean.TRUE.equals(membership.getIsNative());
 
+        boolean positivePaidOrder = amountMinor > 0;
         membership.setLifetimeSpendMinor(membership.getLifetimeSpendMinor() + amountMinor);
-        membership.setIsNative(true);
+        if (positivePaidOrder) {
+            membership.setIsNative(true);
+        }
         int newLevel = deriveLevel(membership.getLifetimeSpendMinor());
+        if (positivePaidOrder) {
+            newLevel = Math.max(newLevel, 1);
+        }
         if (newLevel > oldLevel) {
             membership.setLevel(newLevel);
         }
@@ -206,7 +212,7 @@ public class MemberService {
         paidEvent.setCreatedAt(LocalDateTime.now());
         eventMapper.insert(paidEvent);
 
-        if (!wasNative) {
+        if (positivePaidOrder && !wasNative) {
             MembershipEvent nativeEvent = new MembershipEvent();
             nativeEvent.setUserId(userId);
             nativeEvent.setEventType("NATIVE_TAGGED");
@@ -253,16 +259,16 @@ public class MemberService {
     }
 
     private int deriveLevel(long lifetimeSpendMinor) {
-        long l1 = DEFAULT_L1_THRESHOLD_CENTS;
-        long l2 = DEFAULT_L2_THRESHOLD_CENTS;
-        long l3 = DEFAULT_L3_THRESHOLD_CENTS;
+        long l1 = DEFAULT_L1_THRESHOLD_MINOR;
+        long l2 = DEFAULT_L2_THRESHOLD_MINOR;
+        long l3 = DEFAULT_L3_THRESHOLD_MINOR;
 
         try {
             List<java.util.Map<String, Object>> rules = configService.getMembershipRules();
             if (rules != null && !rules.isEmpty()) {
-                l1 = readThreshold(rules, 1, DEFAULT_L1_THRESHOLD_CENTS);
-                l2 = readThreshold(rules, 2, DEFAULT_L2_THRESHOLD_CENTS);
-                l3 = readThreshold(rules, 3, DEFAULT_L3_THRESHOLD_CENTS);
+                l1 = readThreshold(rules, 1, DEFAULT_L1_THRESHOLD_MINOR);
+                l2 = readThreshold(rules, 2, DEFAULT_L2_THRESHOLD_MINOR);
+                l3 = readThreshold(rules, 3, DEFAULT_L3_THRESHOLD_MINOR);
             }
         } catch (Exception e) {
             log.warn("Failed to load membership rules from config, using defaults: {}", e.getMessage());

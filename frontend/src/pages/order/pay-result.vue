@@ -42,7 +42,7 @@ onLoad(async (options) => {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const order = await getOrderDetail(orderId);
-      if (["PAID", "IN_SERVICE", "COMPLETED"].includes(order.status)) {
+      if (["PAID", "FULFILLING", "COMPLETED"].includes(order.status)) {
         isSuccess.value = true;
         checking.value = false;
         return;

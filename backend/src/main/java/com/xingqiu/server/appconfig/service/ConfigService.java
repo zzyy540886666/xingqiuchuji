@@ -166,25 +166,32 @@ public class ConfigService {
     private List<Map<String, Object>> defaultMembershipRules() {
         List<Map<String, Object>> rules = new ArrayList<>();
 
+        Map<String, Object> l0 = new LinkedHashMap<>();
+        l0.put("level", 0);
+        l0.put("name", "Lv.0 星际访客");
+        l0.put("thresholdDesc", "注册即享，可浏览下单");
+        l0.put("thresholdMinor", 0L);
+        rules.add(l0);
+
         Map<String, Object> l1 = new LinkedHashMap<>();
         l1.put("level", 1);
-        l1.put("name", "L1 青铜会员");
-        l1.put("thresholdDesc", "累计消费满 100 元");
-        l1.put("thresholdMinor", 10_000L);
+        l1.put("name", "Lv.1 星球探索者");
+        l1.put("thresholdDesc", "首单或付费 99 元/年");
+        l1.put("thresholdMinor", 9_900L);
         rules.add(l1);
 
         Map<String, Object> l2 = new LinkedHashMap<>();
         l2.put("level", 2);
-        l2.put("name", "L2 白银会员");
-        l2.put("thresholdDesc", "累计消费满 500 元");
-        l2.put("thresholdMinor", 50_000L);
+        l2.put("name", "Lv.2 星球开拓者");
+        l2.put("thresholdDesc", "累计消费满 5000 元或 299 元/年");
+        l2.put("thresholdMinor", 500_000L);
         rules.add(l2);
 
         Map<String, Object> l3 = new LinkedHashMap<>();
         l3.put("level", 3);
-        l3.put("name", "L3 黄金会员");
-        l3.put("thresholdDesc", "累计消费满 2000 元");
-        l3.put("thresholdMinor", 200_000L);
+        l3.put("name", "Lv.3 星球领主");
+        l3.put("thresholdDesc", "累计消费满 20000 元或 999 元/年");
+        l3.put("thresholdMinor", 2_000_000L);
         rules.add(l3);
 
         return rules;

@@ -26,11 +26,22 @@ if (Test-Path $ENV_FILE) {
     }
 }
 
-if (-not $env:DB_USERNAME)    { $env:DB_USERNAME    = "root" }
-if (-not $env:DB_PASSWORD)    { $env:DB_PASSWORD    = "xingqiu123" }
-if (-not $env:REDIS_HOST)     { $env:REDIS_HOST     = "localhost" }
-if (-not $env:REDIS_PASSWORD) { $env:REDIS_PASSWORD = "redis123" }
+# Local development always runs the backend on the host machine and only uses
+# Docker for MySQL/Redis. Do not inherit production-style .env hosts/passwords.
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = "xingqiu123"
+$env:DB_URL = "jdbc:mysql://localhost:3306/xingqiu_dev?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai"
+$env:REDIS_HOST = "localhost"
+$env:REDIS_PASSWORD = "redis123"
+$env:SPRING_DATASOURCE_URL = $env:DB_URL
+$env:SPRING_DATASOURCE_USERNAME = $env:DB_USERNAME
+$env:SPRING_DATASOURCE_PASSWORD = $env:DB_PASSWORD
+$env:SPRING_DATA_REDIS_HOST = $env:REDIS_HOST
+$env:SPRING_DATA_REDIS_PASSWORD = $env:REDIS_PASSWORD
 if (-not $env:JWT_SECRET)     { $env:JWT_SECRET     = "dev-secret-change-me" }
+
+# Force dev profile for local development (ignore .env production setting)
+$env:SPRING_PROFILES_ACTIVE = "dev"
 
 # --- Helper Functions ---
 
@@ -151,6 +162,56 @@ function Test-PortListening($port) {
     return [bool]@(Get-ListeningPortProcessIds $port)
 }
 
+function Test-DockerCommand {
+    $ErrorActionPreference = "Continue"
+    $version = docker version --format "{{.Server.Version}}" 2>&1
+    $dockerExitCode = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+
+    if ($dockerExitCode -ne 0) {
+        Write-Fail "Docker is not available: $version"
+        return $false
+    }
+
+    return $true
+}
+
+function Test-MySqlLogin {
+    $ErrorActionPreference = "Continue"
+    $result = docker exec xq-mysql mysqladmin ping "-u$env:DB_USERNAME" "-p$env:DB_PASSWORD" --silent 2>&1
+    $mysqlExitCode = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+
+    if ($mysqlExitCode -ne 0) {
+        Write-Fail "Cannot connect to xq-mysql with $env:DB_USERNAME/$env:DB_PASSWORD"
+        Write-Host "  MySQL said: $result" -ForegroundColor DarkYellow
+        Write-Host "  If this container was initialized with another password, either set it back or recreate the dev volume:" -ForegroundColor DarkYellow
+        Write-Host "    docker compose -p xingqiu down -v" -ForegroundColor DarkYellow
+        Write-Host "    docker compose -p xingqiu up -d mysql redis" -ForegroundColor DarkYellow
+        Write-Host "  Warning: down -v deletes the local dev database volume." -ForegroundColor DarkYellow
+        return $false
+    }
+
+    Write-Ok "MySQL login verified"
+    return $true
+}
+
+function Test-RedisLogin {
+    $ErrorActionPreference = "Continue"
+    $result = docker exec xq-redis redis-cli -a $env:REDIS_PASSWORD ping 2>&1
+    $redisExitCode = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+
+    if ($redisExitCode -ne 0 -or ($result -join "`n") -notmatch "PONG") {
+        Write-Fail "Cannot connect to xq-redis with configured password"
+        Write-Host "  Redis said: $result" -ForegroundColor DarkYellow
+        return $false
+    }
+
+    Write-Ok "Redis login verified"
+    return $true
+}
+
 function Stop-ProcessTree($processId) {
     if (-not $processId) { return }
 
@@ -179,6 +240,12 @@ Write-Banner "XingQiu Dev Environment Launcher"
 # --- 1. Docker ---
 Write-Step "1/5" "Checking Docker services (MySQL / Redis)..."
 
+if (-not (Test-DockerCommand)) {
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
+
 $ErrorActionPreference = "Continue"
 $mysqlUp = docker ps --filter "name=xq-mysql" --filter "status=running" -q 2>&1
 $redisUp = docker ps --filter "name=xq-redis" --filter "status=running" -q 2>&1
@@ -192,6 +259,17 @@ if (-not $mysqlUp -or -not $redisUp) {
     $ErrorActionPreference = "Stop"
     Pop-Location
     Start-Sleep -Seconds 5
+}
+
+if (-not (Test-MySqlLogin)) {
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
+if (-not (Test-RedisLogin)) {
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
 }
 
 $ErrorActionPreference = "Continue"

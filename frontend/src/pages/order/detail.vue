@@ -53,38 +53,25 @@
 
       <!-- 履约信息（按订单类型） -->
       <!-- 租赁：物流/续租 -->
-      <view v-if="order.orderType === 'RENT' && order.status === 'IN_SERVICE'" class="card">
+      <view v-if="order.orderType === 'RENT' && order.status === 'FULFILLING'" class="card">
         <text class="card-title">履约信息</text>
-        <view class="info-row"><text class="label">设备状态</text><text class="value status-active">使用中</text></view>
+        <view class="info-row"><text class="label">设备状态</text><text class="value status-active">履约中</text></view>
         <view v-if="order.rentEndDate" class="info-row"><text class="label">到期时间</text><text class="value">{{ order.rentEndDate.slice(0, 10) }}</text></view>
       </view>
 
       <!-- 购买：物流信息 -->
-      <view v-if="order.orderType === 'BUY' && ['PAID', 'IN_SERVICE'].includes(order.status)" class="card">
+      <view v-if="order.orderType === 'BUY' && ['PAID', 'FULFILLING'].includes(order.status)" class="card">
         <text class="card-title">物流信息</text>
-        <view v-if="shippingInfo" class="ship-info">
-          <view class="info-row"><text class="label">物流公司</text><text class="value">{{ shippingInfo.company }}</text></view>
-          <view class="info-row"><text class="label">运单号</text><text class="value">{{ shippingInfo.trackingNo }}</text></view>
-          <view class="info-row"><text class="label">收货地址</text><text class="value">{{ shippingInfo.address }}</text></view>
-        </view>
-        <view v-else class="empty-shipping">
+        <view class="empty-shipping">
           <text>物流信息待更新，请稍后查看</text>
         </view>
       </view>
 
       <!-- 软件：激活码/下载链接 -->
-      <view v-if="order.orderType === 'SOFTWARE' && ['PAID', 'IN_SERVICE'].includes(order.status)" class="card">
+      <view v-if="order.orderType === 'SOFTWARE' && ['PAID', 'FULFILLING', 'COMPLETED'].includes(order.status)" class="card">
         <text class="card-title">软件交付</text>
-        <view v-if="softwareDelivery" class="delivery-info">
-          <view v-if="softwareDelivery.activationCode" class="info-row"><text class="label">激活码</text><text class="value code-text" @tap="copyCode(softwareDelivery.activationCode)">{{ softwareDelivery.activationCode }} (点击复制)</text></view>
-          <view v-if="softwareDelivery.downloadUrl" class="info-row">
-            <text class="label">下载链接</text>
-            <text class="value link-text" @tap="openLink(softwareDelivery.downloadUrl)">点击下载</text>
-          </view>
-          <view v-if="softwareDelivery.validUntil" class="info-row"><text class="label">授权有效期</text><text class="value">{{ softwareDelivery.validUntil }}</text></view>
-        </view>
-        <view v-else class="empty-shipping">
-          <text>激活信息生成中，请稍后查看</text>
+        <view class="empty-shipping">
+          <text>软件交付信息待生成，请稍后查看</text>
         </view>
       </view>
 
@@ -103,7 +90,7 @@ import Skeleton from "../../components/PageSkeleton.vue";
 import { formatAmount } from "../../utils/format";
 import { getOrderDetail, cancelOrder, getWechatPayParams, getContractUrl, type Order } from "../../services/order";
 import { getSkuDetail } from "../../services/catalog";
-import { navigateToPage, redirectToPage } from "../../utils/navigation";
+import { redirectToPage } from "../../utils/navigation";
 import { buildPageUrl } from "../../utils/query";
 
 interface ActionButton { key: string; label: string; style: string; handler: () => void }
@@ -112,15 +99,14 @@ const order = ref<Order | null>(null);
 const loading = ref(true);
 const skuTitle = ref("加载中...");
 const skuImage = ref("");
-const shippingInfo = ref<{ company: string; trackingNo: string; address: string } | null>(null);
-const softwareDelivery = ref<{ activationCode: string; downloadUrl: string; validUntil: string } | null>(null);
 let orderId = "";
 let payOnReady = false;
 
-const showContract = computed(() => order.value ? ["PAID", "IN_SERVICE", "COMPLETED"].includes(order.value.status) : false);
+const showContract = computed(() => order.value ? ["PAID", "FULFILLING", "COMPLETED"].includes(order.value.status) : false);
 
 const statusTimeline: Record<string, number> = {
-  PENDING_PAY: 0, PAID: 1, IN_SERVICE: 2, COMPLETED: 3, CANCELLED: -1,
+  PENDING_PAY: 0, PAID: 1, FULFILLING: 2, COMPLETED: 3, CANCELLED: -1,
+  REFUNDING: 1, REFUNDED: 3,
 };
 
 const timelineSteps = computed(() => {
@@ -150,10 +136,10 @@ const actionButtons = computed(() => {
     btns.push({ key: "cancel", label: "取消订单", style: "outline", handler: handleCancel });
     btns.push({ key: "pay", label: "去支付", style: "primary", handler: handlePay });
   }
-  if (status === "IN_SERVICE" && type === "RENT") {
+  if (status === "FULFILLING" && type === "RENT") {
     btns.push({ key: "renew", label: "续租", style: "primary", handler: handleRenew });
   }
-  if (["PAID", "IN_SERVICE"].includes(status)) {
+  if (["PAID", "FULFILLING"].includes(status)) {
     if (type === "BUY") {
       btns.push({ key: "confirm", label: "确认收货", style: "primary", handler: handleConfirmReceipt });
       btns.push({ key: "aftersale", label: "申请售后", style: "outline", handler: handleAfterSale });
@@ -167,8 +153,8 @@ const actionButtons = computed(() => {
 
 function statusLabel(s: string) {
   const m: Record<string, string> = {
-    PENDING_PAY: "待付款", PAID: "待履约", IN_SERVICE: "履约中",
-    COMPLETED: "已完成", CANCELLED: "已取消", REFUNDING: "退款中",
+    PENDING_PAY: "待付款", PAID: "待履约", FULFILLING: "履约中",
+    COMPLETED: "已完成", CANCELLED: "已取消", REFUNDING: "退款中", REFUNDED: "已退款",
   };
   return m[s] || s;
 }
@@ -177,9 +163,11 @@ function statusHint(s: string) {
   const m: Record<string, string> = {
     PENDING_PAY: "请在有效时间内完成支付",
     PAID: "商家正在准备发货/履约",
-    IN_SERVICE: "请在到期前及时续租/确认收货",
+    FULFILLING: "订单履约中，请等待商家更新进度",
     COMPLETED: "订单已完成，感谢您的使用",
     CANCELLED: "该订单已取消",
+    REFUNDING: "退款处理中，请等待商家更新",
+    REFUNDED: "该订单已退款",
   };
   return m[s] || "";
 }
@@ -207,11 +195,6 @@ async function fetchDetail() {
       skuTitle.value = "商品信息不可用";
       skuImage.value = "";
     }
-    if (order.value.orderType === "SOFTWARE" && ["PAID", "IN_SERVICE", "COMPLETED"].includes(order.value.status)) {
-      softwareDelivery.value = resolveSoftwareDelivery(order.value);
-    } else {
-      softwareDelivery.value = null;
-    }
     if (payOnReady && actionButtons.value.some(b => b.key === "pay")) {
       payOnReady = false;
       handlePay();
@@ -221,15 +204,6 @@ async function fetchDetail() {
   } finally {
     loading.value = false;
   }
-}
-
-function resolveSoftwareDelivery(item: Order) {
-  if (!item.softwareLicense && !item.softwareDownloadUrl) return null;
-  return {
-    activationCode: item.softwareLicense || "",
-    downloadUrl: item.softwareDownloadUrl || "",
-    validUntil: item.softwareValidUntil || "",
-  };
 }
 
 async function handleCancel() {
@@ -254,24 +228,15 @@ async function handlePay() {
 }
 
 function handleRenew() {
-  navigateToPage(buildPageUrl("/pages/order/confirm", { id: orderId, action: "renew" }));
+  uni.showToast({ title: "续租功能暂未开放", icon: "none" });
 }
 
 function handleConfirmReceipt() {
-  uni.showModal({
-    title: "确认收货",
-    content: "确认已收到商品？确认后将无法退换。",
-    success: (result) => {
-      if (result.confirm) {
-        uni.showToast({ title: "已确认收货", icon: "none" });
-        fetchDetail();
-      }
-    },
-  });
+  uni.showToast({ title: "确认收货功能暂未开放", icon: "none" });
 }
 
 function handleAfterSale() {
-  navigateToPage(buildPageUrl("/pages/repair/create", { orderId, source: "aftersale" }));
+  uni.showToast({ title: "售后申请功能暂未开放", icon: "none" });
 }
 
 async function handleDownloadContract() {
@@ -297,22 +262,6 @@ async function handleDownloadContract() {
   }
 }
 
-function copyCode(code: string) {
-  uni.setClipboardData({ data: code, success: () => uni.showToast({ title: "激活码已复制", icon: "none" }) });
-}
-
-function openLink(url: string) {
-  if (!url) {
-    uni.showToast({ title: "下载链接暂未生成", icon: "none" });
-    return;
-  }
-  // #ifdef H5
-  window.open(url);
-  // #endif
-  // #ifdef MP-WEIXIN
-  uni.setClipboardData({ data: url, success: () => uni.showToast({ title: "链接已复制，请在浏览器中打开", icon: "none" }) });
-  // #endif
-}
 </script>
 
 <style scoped lang="scss">
@@ -321,7 +270,7 @@ function openLink(url: string) {
   color: #fff;
 }
 .status-banner.PENDING_PAY { background: linear-gradient(135deg, #f59e0b, #f97316); }
-.status-banner.PAID, .status-banner.IN_SERVICE { background: linear-gradient(135deg, #0a4bfe, #3b82f6); }
+.status-banner.PAID, .status-banner.FULFILLING { background: linear-gradient(135deg, #0a4bfe, #3b82f6); }
 .status-banner.COMPLETED { background: linear-gradient(135deg, #10b981, #059669); }
 .status-banner.CANCELLED { background: linear-gradient(135deg, #9ca3af, #6b7280); }
 .status-text { font-size: 40rpx; font-weight: 800; display: block; }

@@ -177,7 +177,7 @@ const statusTabs = [
   { label: "全部", value: "" },
   { label: "待付款", value: "PENDING_PAY" },
   { label: "待履约", value: "PAID" },
-  { label: "履约中", value: "IN_SERVICE" },
+  { label: "履约中", value: "FULFILLING" },
   { label: "已完成", value: "COMPLETED" },
   { label: "已取消", value: "CANCELLED" },
 ];
@@ -198,9 +198,11 @@ function getStatusLabel(status: string) {
   switch (status) {
     case 'PENDING_PAY': return '待付款';
     case 'PAID': return '待履约';
-    case 'IN_SERVICE': return '履约中';
+    case 'FULFILLING': return '履约中';
     case 'COMPLETED': return '已完成';
     case 'CANCELLED': return '已取消';
+    case 'REFUNDING': return '退款中';
+    case 'REFUNDED': return '已退款';
     default: return status;
   }
 }
@@ -209,9 +211,11 @@ function getStatusHint(status: string) {
   const hints: Record<string, string> = {
     PENDING_PAY: "等待支付",
     PAID: "等待商家履约",
-    IN_SERVICE: "订单履约中",
+    FULFILLING: "订单履约中",
     COMPLETED: "订单已完成",
     CANCELLED: "订单已取消",
+    REFUNDING: "退款处理中",
+    REFUNDED: "订单已退款",
   };
   return hints[status] || "";
 }
@@ -220,7 +224,7 @@ function getStatusColor(status: string) {
   switch (status) {
     case 'PENDING_PAY': return 'text-orange';
     case 'PAID':
-    case 'IN_SERVICE': return 'text-blue';
+    case 'FULFILLING': return 'text-blue';
     case 'COMPLETED': return 'text-green';
     default: return 'text-gray';
   }

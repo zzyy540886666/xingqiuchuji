@@ -9,6 +9,17 @@ export interface OrderPreviewParams {
   address?: string;
 }
 
+export type OrderStatus =
+  | "PENDING_PAY"
+  | "PAID"
+  | "CANCELLED"
+  | "FULFILLING"
+  | "COMPLETED"
+  | "REFUNDING"
+  | "REFUNDED";
+
+export type OrderType = "RENT" | "BUY" | "SOFTWARE";
+
 export interface PriceBreakdownItem {
   label: string;
   amountMinor: number;
@@ -24,8 +35,9 @@ export interface OrderPreviewResult {
 export interface Order {
   id: string;
   orderNo: string;
-  status: string;
-  orderType: "RENT" | "BUY" | "SOFTWARE";
+  userId?: number;
+  status: OrderStatus;
+  orderType: OrderType;
   skuId: number;
   amountMinor: number;
   payableMinor: number;
@@ -35,16 +47,9 @@ export interface Order {
   rentStartDate?: string;
   rentEndDate?: string;
   addressJson?: string;
+  idempotencyKey?: string;
   createdAt: string;
-  statusDesc?: string;
-  skuTags?: string;
-  logisticsCompany?: string;
-  logisticsNodes?: Array<{status: string, time: string, isCurrent: boolean}>;
-  softwareLicense?: string;
-  softwareDownloadUrl?: string;
-  softwareValidUntil?: string;
-  softwareCompatibleModels?: string;
-  softwareDeliveryMethod?: string;
+  updatedAt?: string;
 }
 
 export function previewOrder(params: OrderPreviewParams): Promise<OrderPreviewResult> {
@@ -72,7 +77,7 @@ export function getWechatPayParams(orderId: string) {
   }>(`/orders/${orderId}/payments/wechat-jsapi`, { method: "POST" });
 }
 
-export function getOrderList(params: { type?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: Order[]; total: number }> {
+export function getOrderList(params: { type?: OrderType | string; status?: OrderStatus | string; page?: number; pageSize?: number }): Promise<{ items: Order[]; total: number }> {
   const query = buildQuery({ ...params, pageSize: params.pageSize || 20 });
   return request<{ items: Order[]; total: number }>(`/orders${query ? `?${query}` : ""}`);
 }
